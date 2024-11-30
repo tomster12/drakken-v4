@@ -45,3 +45,4 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   turnDisplayTokenPrefab: {fileID: 1423939804450121160, guid: 6214c54c387c1d94a84bdcca6a13701e, type: 3}
+  otherPlayerPrefab: {fileID: 1094528684000443999, guid: e6a3bb62b4c59e64ab07de428297bde0, type: 3}

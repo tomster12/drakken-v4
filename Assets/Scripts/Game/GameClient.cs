@@ -8,6 +8,34 @@ public class GameClient : MonoBehaviour
 {
     public static GameClient Instance;
 
+    public void StartSetupPhase(ClientSetupPhaseData data)
+    {
+        Assert.AreEqual(GamePhase.CONNECTING, gamePhase);
+        gamePhase = GamePhase.SETUP;
+        setupData = data;
+        setupPhaseEnumCoroutine = StartCoroutine(SetupPhaseEnum());
+    }
+
+    public void ResetToConnectingPhase()
+    {
+        Debug.Log("Resetting to connecting phase.");
+        if (gamePhase == GamePhase.SETUP)
+        {
+            CleanupSetupPhase();
+        }
+        gamePhase = GamePhase.CONNECTING;
+    }
+
+    [Header("References")]
+    [SerializeField] private GameObject turnDisplayTokenPrefab;
+    [SerializeField] private GameObject otherPlayerPrefab;
+
+    private GamePhase gamePhase;
+    private ulong ownClientID = 50;
+    private Coroutine setupPhaseEnumCoroutine;
+    private ClientSetupPhaseData setupData;
+    private GameObject otherPlayerObject;
+
     private void Awake()
     {
         Assert.IsNull(Instance);
@@ -18,23 +46,12 @@ public class GameClient : MonoBehaviour
         GameManager.Instance.ConnectToGameServerRpc();
     }
 
-    public void StartSetupPhase(ClientSetupPhaseData data)
-    {
-        Assert.AreEqual(GamePhase.CONNECTING, gamePhase);
-        gamePhase = GamePhase.SETUP;
-        setupData = data;
-        StartCoroutine(SetupPhaseEnum());
-    }
-
-    [Header("References")]
-    [SerializeField] private GameObject turnDisplayTokenPrefab;
-
-    private GamePhase gamePhase;
-    private ulong ownClientID = 50;
-    private ClientSetupPhaseData setupData;
-
     private IEnumerator SetupPhaseEnum()
     {
+        // Spawn in other player
+        otherPlayerObject = Instantiate(otherPlayerPrefab);
+        otherPlayerObject.transform.position = new Vector3(0.0f, -2.0f, 30.0f);
+
         // Flip turn display token
         GameObject turnDisplayTokenObject = Instantiate(turnDisplayTokenPrefab);
         TurnToken turnDisplayToken = turnDisplayTokenObject.GetComponent<TurnToken>();
@@ -66,5 +83,28 @@ public class GameClient : MonoBehaviour
         displayTokens.Clear();
 
         yield return null;
+    }
+
+    private void CleanupSetupPhase()
+    {
+        if (otherPlayerObject != null)
+        {
+            DestroyImmediate(otherPlayerObject);
+            otherPlayerObject = null;
+        }
+
+        if (setupPhaseEnumCoroutine != null)
+        {
+            StopCoroutine(setupPhaseEnumCoroutine);
+            setupPhaseEnumCoroutine = null;
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (gamePhase == GamePhase.SETUP)
+        {
+            CleanupSetupPhase();
+        }
     }
 }

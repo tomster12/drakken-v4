@@ -29,6 +29,15 @@ public class GameServer : MonoBehaviour
         }
     }
 
+    public void OnClientDisconnect(ulong clientID)
+    {
+        Debug.Log("Client disconnected: " + clientID);
+        clientIDs.Remove(clientID);
+        playersConnected--;
+        gamePhase = GamePhase.CONNECTING;
+        GameManager.Instance.ResetToConnectingPhaseClientRpc();
+    }
+
     public void StartSetupPhase()
     {
         Assert.AreEqual(GamePhase.CONNECTING, gamePhase);

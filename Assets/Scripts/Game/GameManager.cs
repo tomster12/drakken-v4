@@ -24,6 +24,18 @@ public class GameManager : NetworkBehaviour
                 Instantiate(clientPrefab);
             }
         };
+
+        NetworkManager.Singleton.OnClientDisconnectCallback += (clientId) =>
+        {
+            if (IsServer)
+            {
+                GameServer.Instance.OnClientDisconnect(clientId);
+            }
+            else if (IsClient)
+            {
+                DestroyImmediate(GameClient.Instance.gameObject);
+            }
+        };
     }
 
     public override void OnNetworkSpawn()
@@ -45,5 +57,11 @@ public class GameManager : NetworkBehaviour
     public void StartSetupPhaseClientRpc(ClientSetupPhaseData data)
     {
         GameClient.Instance.StartSetupPhase(data);
+    }
+
+    [ClientRpc]
+    public void ResetToConnectingPhaseClientRpc()
+    {
+        GameClient.Instance.ResetToConnectingPhase();
     }
 }

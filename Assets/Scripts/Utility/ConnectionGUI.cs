@@ -3,37 +3,35 @@ using UnityEngine;
 
 public class ConnectionGUI : MonoBehaviour
 {
-    [SerializeField] private NetworkManager networkManager;
-
     private void OnGUI()
     {
         GUILayout.BeginArea(new Rect(10, 10, 300, 300));
-        if (!networkManager.IsClient && !networkManager.IsServer)
+        if (!NetworkManager.Singleton.IsClient && !NetworkManager.Singleton.IsServer)
         {
-            DrawGUIStartButtons();
+            DrawGUISetup();
         }
         else
         {
-            DrawGUIStatusLabels();
+            DrawGUIConnected();
         }
 
         GUILayout.EndArea();
     }
 
-    private void DrawGUIStartButtons()
+    private void DrawGUISetup()
     {
-        if (GUILayout.Button("Host")) networkManager.StartHost();
-        if (GUILayout.Button("Client")) networkManager.StartClient();
-        if (GUILayout.Button("Server")) networkManager.StartServer();
+        if (GUILayout.Button("Host")) NetworkManager.Singleton.StartHost();
+        if (GUILayout.Button("Client")) NetworkManager.Singleton.StartClient();
+        if (GUILayout.Button("Server")) NetworkManager.Singleton.StartServer();
     }
 
-    private void DrawGUIStatusLabels()
+    private void DrawGUIConnected()
     {
-        var mode = networkManager.IsHost ?
-            "Host" : networkManager.IsServer ? "Server" : "Client";
+        var mode = NetworkManager.Singleton.IsHost ?
+            "Host" : NetworkManager.Singleton.IsServer ? "Server" : "Client";
 
-        GUILayout.Label("Transport: " +
-            networkManager.NetworkConfig.NetworkTransport.GetType().Name);
+        GUILayout.Label("Transport: " + NetworkManager.Singleton.NetworkConfig.NetworkTransport.GetType().Name);
         GUILayout.Label("Mode: " + mode);
+        if (GUILayout.Button("Disconnect")) NetworkManager.Singleton.Shutdown();
     }
 }
