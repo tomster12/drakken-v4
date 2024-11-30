@@ -1,5 +1,4 @@
 using NUnit.Framework;
-using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -8,8 +7,8 @@ public class GameManager : NetworkBehaviour
     public static GameManager Instance;
 
     [Header("References")]
-    [SerializeField] private GameObject clientPrefab;
-    [SerializeField] private GameObject serverPrefab;
+    [SerializeField] private GameClient client;
+    [SerializeField] private GameServer server;
 
     private void Awake()
     {
@@ -21,7 +20,8 @@ public class GameManager : NetworkBehaviour
             if (IsClient)
             {
                 Assert.AreEqual(NetworkManager.Singleton.LocalClientId, clientId);
-                Instantiate(clientPrefab);
+                client.OnConnect();
+                Destroy(server);
             }
         };
 
@@ -33,7 +33,7 @@ public class GameManager : NetworkBehaviour
             }
             else if (IsClient)
             {
-                DestroyImmediate(GameClient.Instance.gameObject);
+                client.OnDisconnect();
             }
         };
     }
@@ -42,7 +42,8 @@ public class GameManager : NetworkBehaviour
     {
         if (IsServer)
         {
-            Instantiate(serverPrefab);
+            server.OnSpawn();
+            Destroy(client);
         }
     }
 
@@ -53,15 +54,22 @@ public class GameManager : NetworkBehaviour
         GameServer.Instance.OnClientConnect(clientID);
     }
 
-    [ClientRpc]
-    public void StartSetupPhaseClientRpc(ClientSetupPhaseData data)
+    [ServerRpc(RequireOwnership = false)]
+    public void DisconnectFromGameServerRpc(ServerRpcParams serverRpcParams = default)
     {
-        GameClient.Instance.StartSetupPhase(data);
+        ulong clientID = serverRpcParams.Receive.SenderClientId;
+        GameServer.Instance.OnClientDisconnect(clientID);
     }
 
     [ClientRpc]
-    public void ResetToConnectingPhaseClientRpc()
+    public void GameStartClientRpc(ClientSetupPhaseData data)
     {
-        GameClient.Instance.ResetToConnectingPhase();
+        GameClient.Instance.GameStart(data);
+    }
+
+    [ClientRpc]
+    public void GameResetClientRpc()
+    {
+        GameClient.Instance.GameReset();
     }
 }

@@ -2,7 +2,7 @@
 using Unity.Netcode;
 
 [Serializable]
-public struct ClientSetupPhaseData : INetworkSerializable
+public class ClientSetupPhaseData : INetworkSerializable
 {
     public ulong firstPlayerClientID;
     public string[] initialGameTokenIDs;

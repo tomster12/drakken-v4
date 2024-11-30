@@ -3,22 +3,22 @@ using UnityEngine;
 
 public class TurnToken : MonoBehaviour
 {
-    public IEnumerator FlipAnimationEnum(bool isFirst)
+    public IEnumerator FlipAnimationEnum(bool isFirst, float waitTime = 0.5f)
     {
-        Vector3 bottomPos = new Vector3(0, 0.15f, 0);
-        Vector3 topPos = new Vector3(0, 6.5f, 0);
+        Vector3 bottomPos = transform.position;
+        Vector3 topPos = bottomPos + Vector3.up * 6.5f;
         Vector3 endRotation = isFirst ? Vector3.zero : new Vector3(180, 0, 0);
-        float timeMax = 1f;
+        float totalTime = 1f;
         int flipCount = 2;
 
         token.transform.position = bottomPos;
         token.transform.eulerAngles = Vector3.zero;
 
         float time = 0f;
-        while (time < timeMax)
+        while (time < totalTime)
         {
             time += Time.deltaTime;
-            float t = time / timeMax;
+            float t = time / totalTime;
 
             // Lerp smoothly (sin(0.5 * PI) = 1)
             float heightT = Mathf.Sin(t * Mathf.PI);
@@ -38,8 +38,8 @@ public class TurnToken : MonoBehaviour
         token.transform.position = bottomPos;
         token.transform.eulerAngles = endRotation;
 
-        yield return new WaitForSeconds(1.0f);
-        DestroyImmediate(transform.gameObject);
+        yield return new WaitForSeconds(waitTime);
+        Destroy(transform.gameObject);
     }
 
     [Header("References")]

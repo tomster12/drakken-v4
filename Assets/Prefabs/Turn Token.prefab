@@ -247,9 +247,9 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 6077161656299390988}
-  - component: {fileID: 275834499194594324}
+  - component: {fileID: 1692494727519680681}
   m_Layer: 0
-  m_Name: Turn Coin
+  m_Name: Turn Token
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -271,7 +271,7 @@ Transform:
   - {fileID: 819263240973674407}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &275834499194594324
+--- !u!114 &1692494727519680681
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

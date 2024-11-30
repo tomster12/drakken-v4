@@ -6,11 +6,8 @@ public class GameServer : MonoBehaviour
 {
     public static GameServer Instance;
 
-    private void Awake()
+    public void OnSpawn()
     {
-        Assert.IsNull(Instance);
-        Instance = this;
-
         playersConnected = 0;
         clientIDs = new List<ulong>();
         gamePhase = GamePhase.CONNECTING;
@@ -31,11 +28,9 @@ public class GameServer : MonoBehaviour
 
     public void OnClientDisconnect(ulong clientID)
     {
-        Debug.Log("Client disconnected: " + clientID);
         clientIDs.Remove(clientID);
         playersConnected--;
-        gamePhase = GamePhase.CONNECTING;
-        GameManager.Instance.ResetToConnectingPhaseClientRpc();
+        ResetGamePhase();
     }
 
     public void StartSetupPhase()
@@ -66,14 +61,25 @@ public class GameServer : MonoBehaviour
         clientData.initialGameTokenIDs = initialGameTokenIDs;
         clientData.player1DraftTokenIDs = player1DraftTokenIDs.ToArray();
         clientData.player2DraftTokenIDs = player2DraftTokenIDs.ToArray();
-        GameManager.Instance.StartSetupPhaseClientRpc(clientData);
+        GameManager.Instance.GameStartClientRpc(clientData);
+    }
+
+    public void ResetGamePhase()
+    {
+        gamePhase = GamePhase.CONNECTING;
+        GameManager.Instance.GameResetClientRpc();
     }
 
     private int playersConnected = 0;
     private List<ulong> clientIDs = new List<ulong>();
-
     private GamePhase gamePhase;
     private int currentRound;
     private ulong firstPlayerClientID;
     private List<string> currentGameTokenIDs;
+
+    private void Awake()
+    {
+        Assert.IsNull(Instance);
+        Instance = this;
+    }
 }
