@@ -121,7 +121,7 @@ public class SetupPhaseState : ClientPhaseState
     public override void Enter(GamePhase? previousPhase)
     {
         Assert.IsNotNull(data);
-        coroutine = gameClient.StartCoroutine(MainEnum());
+        mainAnimation = MainAnimation();
     }
 
     public override void Exit(GamePhase? nextPhase)
@@ -129,10 +129,10 @@ public class SetupPhaseState : ClientPhaseState
         GameObject.Destroy(gameClient.OtherPlayerObject);
         gameClient.OtherPlayerObject = null;
 
-        if (coroutine != null)
+        if (mainAnimation != null)
         {
-            gameClient.StopCoroutine(coroutine);
-            coroutine = null;
+            mainAnimation.Stop();
+            mainAnimation = null;
         }
 
         if (turnToken != null)
@@ -158,64 +158,93 @@ public class SetupPhaseState : ClientPhaseState
         this.data = data;
     }
 
-    private Coroutine coroutine;
+    private CompositeCoroutine mainAnimation;
     private ClientSetupPhaseData data;
     private TurnToken turnToken;
     private List<GameObject> displayTokens;
 
-    private IEnumerator MainEnum()
+    private CompositeCoroutine MainAnimation()
     {
-        // Spawn in other player
-        gameClient.OtherPlayerObject = GameObject.Instantiate(gameClient.OtherPlayerPrefab);
-        gameClient.OtherPlayerObject.transform.position = new Vector3(0.0f, -2.0f, 30.0f);
-
-        yield return new WaitForSeconds(0.7f);
-
-        // Flip turn token
-        Vector3 startPos = new Vector3(0.0f, 0.15f, 0.0f);
-        GameObject turnTokenObject = GameObject.Instantiate(gameClient.TurnTokenPrefab, startPos, Quaternion.identity);
-        turnToken = turnTokenObject.GetComponent<TurnToken>();
-        ParticleManager.Instance.SpawnPoof(startPos);
-        yield return new WaitForSeconds(0.7f);
-        bool isFirstPlayer = gameClient.OwnClientID == data.firstPlayerClientID;
-        yield return turnToken.FlipAnimationEnum(isFirstPlayer, 0.7f);
-        ParticleManager.Instance.SpawnPoof(startPos);
-        yield return new WaitForSeconds(0.7f);
-
-        // Display initial game tokens
-        int tokenGridWidth = 6;
-        int tokenGridHeight = 4;
-        float spacing = 2.5f;
-        float offsetX = -spacing * (tokenGridWidth - 1) / 2;
-        float offsetY = spacing * (tokenGridHeight - 1) / 2;
-
-        float tokenAnimationTime = 0.7f;
-        float tokenWaitTime = 0.06f;
-        displayTokens = new List<GameObject>();
-        for (int i = 0; i < data.initialGameTokenIDs.Length; i++)
+        IEnumerator ParentCoroutine(CompositeCoroutine composite)
         {
-            int x = i % tokenGridWidth;
-            int y = i / tokenGridWidth;
-            Vector3 targetPos = new Vector3(x * spacing + offsetX, 0.15f, -y * spacing + offsetY);
-            GameObject displayToken = TokenManager.Instance.CreateDisplayToken(data.initialGameTokenIDs[i], gameClient.bagObject.transform.position);
-            displayTokens.Add(displayToken);
+            // Spawn in other player
+            gameClient.OtherPlayerObject = GameObject.Instantiate(gameClient.OtherPlayerPrefab);
+            gameClient.OtherPlayerObject.transform.position = new Vector3(0.0f, -2.0f, 30.0f);
 
-            // Animate from bag to position after a delay based on I
-            gameClient.StartCoroutine(AnimationUtility.StartAfterDuration(tokenWaitTime * i, () =>
+            // Spawn in, flip turn token, then destroy
+            Vector3 startPos = new Vector3(0.0f, 0.15f, 0.0f);
+            GameObject turnTokenObject = GameObject.Instantiate(gameClient.TurnTokenPrefab, startPos, Quaternion.identity);
+            turnToken = turnTokenObject.GetComponent<TurnToken>();
+            ParticleManager.Instance.SpawnPoof(startPos);
+
+            yield return new WaitForSeconds(1.0f);
+
+            bool isFirstPlayer = gameClient.OwnClientID == data.firstPlayerClientID;
+            yield return turnToken.FlipAnimationEnum(isFirstPlayer, 1.0f);
+            ParticleManager.Instance.SpawnPoof(startPos);
+
+            yield return new WaitForSeconds(0.25f);
+
+            // Display initial game tokens
+            int tokenGridWidth = 6;
+            int tokenGridHeight = 4;
+            float spacing = 2.5f;
+            float offsetX = -spacing * (tokenGridWidth - 1) / 2;
+            float offsetY = spacing * (tokenGridHeight - 1) / 2;
+
+            float tokenAnimateTime = 0.7f;
+            float tokenWaitTime = 0.06f;
+            float lastAnimateEndTime = 0.0f;
+
+            displayTokens = new List<GameObject>();
+            for (int i = 0; i < data.initialGameTokenIDs.Length; i++)
             {
-                gameClient.StartCoroutine(AnimationUtility.AnimateFromBagToPosition(displayToken.transform, gameClient.bagObject.transform.position, targetPos, 6.0f, tokenAnimationTime));
-            }));
+                int x = i % tokenGridWidth;
+                int y = i / tokenGridWidth;
+
+                Vector3 targetPos = new Vector3(x * spacing + offsetX, 0.15f, -y * spacing + offsetY);
+                GameObject displayToken = TokenManager.Instance.CreateDisplayToken(data.initialGameTokenIDs[i], gameClient.bagObject.transform.position);
+                displayTokens.Add(displayToken);
+
+                float tokenTimeStart = tokenWaitTime * i;
+                lastAnimateEndTime = Mathf.Max(lastAnimateEndTime, tokenTimeStart + tokenAnimateTime);
+                composite.StartCouroutine(
+                    AnimationUtility.StartAfterDuration(tokenTimeStart,
+                        AnimationUtility.AnimatePosToPosWithLift(displayToken.transform, gameClient.bagObject.transform.position, targetPos, 6.0f, tokenAnimateTime, 0.2f, 1.0f)
+                    )
+                );
+            }
+
+            yield return new WaitForSeconds(lastAnimateEndTime + 2.5f);
+
+            // Animate them all back into the bag
+            lastAnimateEndTime = 0.0f;
+            for (int i = 0; i < displayTokens.Count; i++)
+            {
+                int x = i % tokenGridWidth;
+                int y = i / tokenGridWidth;
+
+                float tokenTimeStart = tokenWaitTime * ((tokenGridWidth - x) + Mathf.Abs(1.5f - y));
+                lastAnimateEndTime = Mathf.Max(lastAnimateEndTime, tokenTimeStart + tokenAnimateTime);
+                composite.StartCouroutine(
+                    AnimationUtility.StartAfterDuration(tokenTimeStart,
+                        AnimationUtility.AnimatePosToPosWithLift(displayTokens[i].transform, displayTokens[i].transform.position, gameClient.bagObject.transform.position, 6.0f, tokenAnimateTime, 0.0f, 0.8f)
+                    )
+                );
+            }
+
+            yield return new WaitForSeconds(lastAnimateEndTime + 0.3f);
+
+            // Delete them all once theyre all back in the bag
+            for (int i = 0; i < displayTokens.Count; i++)
+            {
+                GameObject.Destroy(displayTokens[i]);
+            }
+            displayTokens.Clear();
         }
 
-        // Destroy after all tokens animated
-        float displayEndWaitTime = data.initialGameTokenIDs.Length * tokenWaitTime + tokenAnimationTime + 2.5f;
-        yield return new WaitForSeconds(displayEndWaitTime);
-        for (int i = 0; i < displayTokens.Count; i++)
-        {
-            GameObject.Destroy(displayTokens[i]);
-        }
-        displayTokens.Clear();
-
-        yield return null;
+        CompositeCoroutine composite = new CompositeCoroutine(gameClient);
+        composite.StartCouroutine(ParentCoroutine(composite));
+        return composite;
     }
 }

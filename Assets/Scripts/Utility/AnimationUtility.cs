@@ -3,17 +3,21 @@ using UnityEngine;
 
 public static class AnimationUtility
 {
-    public static IEnumerator StartAfterDuration(float duration, System.Action action)
+    public static IEnumerator StartAfterDuration(float duration, IEnumerator action)
     {
         yield return new WaitForSeconds(duration);
-        action();
+        yield return action;
     }
 
-    public static IEnumerator AnimateFromBagToPosition(Transform target, Vector3 bagPos, Vector3 targetPos, float liftHeight, float totalTime)
+    public static IEnumerator AnimatePosToPosWithLift(
+        Transform target,
+        Vector3 start,
+        Vector3 end,
+        float liftHeight,
+        float totalTime,
+        float moveStartPct = 0.2f,
+        float moveEndPct = 1.0f)
     {
-        // Move up and out of the bag by lift height, then move over towards targetPos
-        float targetStartPct = 0.2f;
-
         float time = 0f;
         while (time < totalTime)
         {
@@ -22,13 +26,15 @@ public static class AnimationUtility
 
             float liftPct = Mathf.Sin(pct * Mathf.PI);
             Vector3 liftOffset = Vector3.up * (liftHeight * liftPct);
-            float targetPct = Mathf.Min(Mathf.Max((pct - targetStartPct) / (1.0f - targetStartPct), 0.0f), 1.0f);
-            Vector3 movePos = Vector3.Lerp(bagPos, targetPos, targetPct) + liftOffset;
+
+            float targetPct = (pct - moveStartPct) / (moveEndPct - moveStartPct);
+            targetPct = Mathf.Min(Mathf.Max(targetPct, 0.0f), 1.0f);
+            Vector3 movePos = Vector3.Lerp(start, end, targetPct) + liftOffset;
             target.position = movePos;
 
             yield return null;
         }
 
-        target.position = targetPos;
+        target.position = end;
     }
 }
