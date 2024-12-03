@@ -114,7 +114,7 @@ GameObject:
   - component: {fileID: 231499161939473055}
   - component: {fileID: 6361498105307983967}
   m_Layer: 5
-  m_Name: 1
+  m_Name: Top Text
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -284,6 +284,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   token: {fileID: 5993709228604701}
+  topText: {fileID: 6361498105307983967}
+  bottomText: {fileID: 1501602912488391267}
 --- !u!1 &5057315576007263464
 GameObject:
   m_ObjectHideFlags: 0
@@ -398,7 +400,7 @@ GameObject:
   - component: {fileID: 8848100210295626354}
   - component: {fileID: 1501602912488391267}
   m_Layer: 5
-  m_Name: 1
+  m_Name: Bottom Text
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -536,7 +538,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 39ae63eb8914f7840a9dde719ffaade1, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.15
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 39ae63eb8914f7840a9dde719ffaade1, type: 3}
       propertyPath: m_LocalPosition.z

@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using UnityEngine;
 
@@ -32,6 +33,26 @@ public static class AnimationUtility
             Vector3 movePos = Vector3.Lerp(start, end, targetPct) + liftOffset;
             target.position = movePos;
 
+            yield return null;
+        }
+
+        target.position = end;
+    }
+
+    public static IEnumerator AnimatePosToPosWithEasing(
+        Transform target,
+        Vector3 start,
+        Vector3 end,
+        float totalTime,
+        Func<float, float> easingFunction)
+    {
+        float time = 0f;
+        while (time < totalTime)
+        {
+            time += Time.deltaTime;
+            float pct = time / totalTime;
+            float easedPct = easingFunction(pct);
+            target.position = start + (end - start) * easedPct;
             yield return null;
         }
 

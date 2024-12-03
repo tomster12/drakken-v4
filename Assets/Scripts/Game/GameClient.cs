@@ -9,6 +9,11 @@ public class GameClient : MonoBehaviour
 {
     public static GameClient Instance;
 
+    public static Vector3 GetTurnTokenPosition(bool isLocalPlayer)
+    {
+        return isLocalPlayer ? new Vector3(-7.0f, 0.15f, -6.5f) : new Vector3(-7.0f, 0.15f, 6.5f);
+    }
+
     [Header("References")]
     [SerializeField] public GameObject TurnTokenPrefab;
     [SerializeField] public GameObject OtherPlayerPrefab;
@@ -121,7 +126,7 @@ public class SetupPhaseState : ClientPhaseState
     public override void Enter(GamePhase? previousPhase)
     {
         Assert.IsNotNull(data);
-        mainAnimation = MainAnimation();
+        mainAnimation = DoMainAnimation();
     }
 
     public override void Exit(GamePhase? nextPhase)
@@ -163,7 +168,7 @@ public class SetupPhaseState : ClientPhaseState
     private TurnToken turnToken;
     private List<GameObject> displayTokens;
 
-    private CompositeCoroutine MainAnimation()
+    private CompositeCoroutine DoMainAnimation()
     {
         IEnumerator ParentCoroutine(CompositeCoroutine composite)
         {
@@ -171,19 +176,27 @@ public class SetupPhaseState : ClientPhaseState
             gameClient.OtherPlayerObject = GameObject.Instantiate(gameClient.OtherPlayerPrefab);
             gameClient.OtherPlayerObject.transform.position = new Vector3(0.0f, -2.0f, 30.0f);
 
-            // Spawn in, flip turn token, then destroy
+            // Spawn in, flip turn token, animate to relevant position
             Vector3 startPos = new Vector3(0.0f, 0.15f, 0.0f);
             GameObject turnTokenObject = GameObject.Instantiate(gameClient.TurnTokenPrefab, startPos, Quaternion.identity);
             turnToken = turnTokenObject.GetComponent<TurnToken>();
             ParticleManager.Instance.SpawnPoof(startPos);
-
-            yield return new WaitForSeconds(1.0f);
+            yield return new WaitForSeconds(0.85f);
 
             bool isFirstPlayer = gameClient.OwnClientID == data.firstPlayerClientID;
-            yield return turnToken.FlipAnimationEnum(isFirstPlayer, 1.0f);
-            ParticleManager.Instance.SpawnPoof(startPos);
+            yield return turnToken.DoFlipAnimation(isFirstPlayer, 1.0f, 4.0f, 2);
+            yield return new WaitForSeconds(0.3f);
 
-            yield return new WaitForSeconds(0.25f);
+            Vector3 upPos = startPos + Vector3.up * 2.5f;
+            composite.StartCouroutine(
+                AnimationUtility.AnimatePosToPosWithEasing(turnToken.transform, startPos, upPos, 0.6f, Easing.EaseOutBack)
+            );
+            yield return new WaitForSeconds(0.1f);
+            yield return turnToken.DoChangeAnimation(0.4f);
+            yield return new WaitForSeconds(0.05f);
+
+            yield return AnimationUtility.AnimatePosToPosWithEasing(turnToken.transform, upPos, GameClient.GetTurnTokenPosition(isFirstPlayer), 0.95f, Easing.EaseInOutCubic);
+            yield return new WaitForSeconds(0.55f);
 
             // Display initial game tokens
             int tokenGridWidth = 6;
