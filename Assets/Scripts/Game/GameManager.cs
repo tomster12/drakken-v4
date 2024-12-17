@@ -20,7 +20,7 @@ public class GameManager : NetworkBehaviour
             if (IsClient)
             {
                 Assert.AreEqual(NetworkManager.Singleton.LocalClientId, clientId);
-                client.OnConnect();
+                client.OnNetworkConnect();
                 Destroy(server);
             }
         };
@@ -33,7 +33,7 @@ public class GameManager : NetworkBehaviour
             }
             else if (IsClient)
             {
-                client.OnDisconnect();
+                client.OnNetworkDisconnect();
             }
         };
     }
@@ -62,14 +62,14 @@ public class GameManager : NetworkBehaviour
     }
 
     [ClientRpc]
-    public void GameStartClientRpc(ClientSetupPhaseData data)
+    public void GameStartedClientRpc(ClientSetupPhaseData data)
     {
-        GameClient.Instance.GameStart(data);
+        GameClient.Instance.OnGameStarted(data);
     }
 
     [ClientRpc]
     public void GameResetClientRpc()
     {
-        GameClient.Instance.GameReset();
+        GameClient.Instance.OnGameReset();
     }
 }

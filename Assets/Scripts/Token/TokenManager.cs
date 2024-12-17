@@ -2,7 +2,6 @@ using UnityEngine;
 using System.Collections.Generic;
 using UnityEngine.Assertions;
 using System;
-using System.Security;
 
 public class TokenManager : MonoBehaviour
 {
@@ -24,10 +23,10 @@ public class TokenManager : MonoBehaviour
         { TokenRarity.LEGENDARY, 30 }
     };
 
-    public List<string> GetTokenSelection(int count)
+    public List<TokenInstance> GetTokenSelection(int count)
     {
         // Randomly sample tokens from each rarity with a maximumum amount of each rarity
-        List<string> selection = new List<string>();
+        List<TokenInstance> selection = new List<TokenInstance>();
         Dictionary<string, int> tokenCounts = new Dictionary<string, int>();
 
         while (selection.Count < count)
@@ -37,17 +36,17 @@ public class TokenManager : MonoBehaviour
             if (tokenByRarity[rarity].Count == 0) continue;
 
             int index = UnityEngine.Random.Range(0, tokenByRarity[rarity].Count);
-            TokenData token = tokenByRarity[rarity][index];
+            TokenData tokenData = tokenByRarity[rarity][index];
 
-            if (!tokenCounts.ContainsKey(token.ID))
+            if (!tokenCounts.ContainsKey(tokenData.ID))
             {
-                tokenCounts[token.ID] = 0;
+                tokenCounts[tokenData.ID] = 0;
             }
 
-            if (tokenCounts[token.ID] < RARITY_MAX_COUNT[rarity])
+            if (tokenCounts[tokenData.ID] < RARITY_MAX_COUNT[rarity])
             {
-                selection.Add(token.ID);
-                tokenCounts[token.ID]++;
+                tokenCounts[tokenData.ID]++;
+                selection.Add(GetTokenInstance(tokenData.ID));
             }
         }
 
@@ -75,12 +74,12 @@ public class TokenManager : MonoBehaviour
         return tokenByID[tokenID];
     }
 
-    public GameObject CreateDisplayToken(string tokenID, Vector3 position)
+    public DisplayToken CreateDisplayToken(TokenInstance tokenInstance, Vector3 position)
     {
         GameObject displayTokenObject = Instantiate(displayTokenPrefab, position, Quaternion.identity);
         DisplayToken displayToken = displayTokenObject.GetComponent<DisplayToken>();
-        displayToken.SetTokenID(tokenID);
-        return displayTokenObject;
+        displayToken.SetTokenInstance(tokenInstance);
+        return displayToken;
     }
 
     [Header("References")]
@@ -92,6 +91,7 @@ public class TokenManager : MonoBehaviour
     private Dictionary<TokenRarity, List<TokenData>> tokenByRarity;
     private Dictionary<string, TokenData> tokenByID;
     private Dictionary<string, Type> tokenImplTypes;
+    private int nextTokenInstanceID = 0;
 
     private void Awake()
     {
@@ -124,5 +124,11 @@ public class TokenManager : MonoBehaviour
 
             tokenImplTypes[token.ID] = tokenImplType;
         }
+    }
+
+    private TokenInstance GetTokenInstance(string tokenID)
+    {
+        // This shouldn't be used on the client
+        return new TokenInstance(tokenID, (nextTokenInstanceID++).ToString());
     }
 }

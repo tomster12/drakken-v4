@@ -13,7 +13,7 @@ public static class NetworkUtility
         };
     }
 
-    public static void SerializeStringArray<T>(ref string[] array, BufferSerializer<T> serializer) where T : IReaderWriter
+    public static void SerializeTokenInstanceArray<T>(ref TokenInstance[] array, BufferSerializer<T> serializer) where T : IReaderWriter
     {
         if (serializer.IsWriter)
         {
@@ -29,7 +29,7 @@ public static class NetworkUtility
         {
             FastBufferReader fastBufferReader = serializer.GetFastBufferReader();
             fastBufferReader.ReadValueSafe(out int length);
-            array = new string[length];
+            array = new TokenInstance[length];
             for (int i = 0; i < length; i++)
             {
                 fastBufferReader.ReadValueSafe(out array[i]);

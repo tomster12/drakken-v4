@@ -9,21 +9,19 @@ public class GameClient : MonoBehaviour
 {
     public static GameClient Instance;
 
-    public static Vector3 GetTurnTokenPosition(bool isLocalPlayer)
-    {
-        return isLocalPlayer ? new Vector3(-7.0f, 0.15f, -6.5f) : new Vector3(-7.0f, 0.15f, 6.5f);
-    }
-
     [Header("References")]
     [SerializeField] public GameObject TurnTokenPrefab;
     [SerializeField] public GameObject OtherPlayerPrefab;
     [SerializeField] public GameObject bagObject;
+    [SerializeField] public GameBoard ownGameBoard;
+    [SerializeField] public GameBoard opponentGameBoard;
 
     public ulong OwnClientID { get; private set; }
     public bool IsConnected { get; private set; }
     [HideInInspector] public GameObject OtherPlayerObject;
+    [HideInInspector] public bool IsPlayer1;
 
-    public void OnConnect()
+    public void OnNetworkConnect()
     {
         IsConnected = true;
 
@@ -43,11 +41,11 @@ public class GameClient : MonoBehaviour
         // Tell the game server we are a new client
         // We only want to do this once when the client is spawned
         // The connecting state doesn't handle this connection
-        // If GameClient exists then we are connected
+        // If GameClient (this class) exists then we are connected so can just connect
         GameManager.Instance.ConnectToGameServerRpc();
     }
 
-    public void OnDisconnect()
+    public void OnNetworkDisconnect()
     {
         IsConnected = false;
 
@@ -55,13 +53,13 @@ public class GameClient : MonoBehaviour
         currentPhaseState.Exit(null);
     }
 
-    public void GameStart(ClientSetupPhaseData data)
+    public void OnGameStarted(ClientSetupPhaseData data)
     {
         ((SetupPhaseState)phaseStates[GamePhase.SETUP]).SetData(data);
         TransitionToPhase(GamePhase.SETUP);
     }
 
-    public void GameReset()
+    public void OnGameReset()
     {
         TransitionToPhase(GamePhase.CONNECTING);
     }
@@ -155,6 +153,9 @@ public class SetupPhaseState : ClientPhaseState
             displayTokens = null;
         }
 
+        gameClient.ownGameBoard.HardReset();
+        gameClient.opponentGameBoard.HardReset();
+
         data = null;
     }
 
@@ -166,36 +167,35 @@ public class SetupPhaseState : ClientPhaseState
     private CompositeCoroutine mainAnimation;
     private ClientSetupPhaseData data;
     private TurnToken turnToken;
-    private List<GameObject> displayTokens;
+    private List<DisplayToken> displayTokens;
 
     private CompositeCoroutine DoMainAnimation()
     {
+        gameClient.IsPlayer1 = gameClient.OwnClientID == data.firstPlayerClientID;
+
         IEnumerator ParentCoroutine(CompositeCoroutine composite)
         {
             // Spawn in other player
             gameClient.OtherPlayerObject = GameObject.Instantiate(gameClient.OtherPlayerPrefab);
             gameClient.OtherPlayerObject.transform.position = new Vector3(0.0f, -2.0f, 30.0f);
 
-            // Spawn in, flip turn token, animate to relevant position
+            // Spawn in turn token and flip to show first player
             Vector3 startPos = new Vector3(0.0f, 0.15f, 0.0f);
             GameObject turnTokenObject = GameObject.Instantiate(gameClient.TurnTokenPrefab, startPos, Quaternion.identity);
             turnToken = turnTokenObject.GetComponent<TurnToken>();
             ParticleManager.Instance.SpawnPoof(startPos);
             yield return new WaitForSeconds(0.85f);
-
-            bool isFirstPlayer = gameClient.OwnClientID == data.firstPlayerClientID;
-            yield return turnToken.DoFlipAnimation(isFirstPlayer, 1.0f, 4.0f, 2);
+            yield return turnToken.DoFlipAnimation(gameClient.IsPlayer1, 1.0f, 4.0f, 2);
             yield return new WaitForSeconds(0.3f);
 
+            // Raise the turn token upwards, change to indicator, then move to position
             Vector3 upPos = startPos + Vector3.up * 2.5f;
-            composite.StartCouroutine(
-                AnimationUtility.AnimatePosToPosWithEasing(turnToken.transform, startPos, upPos, 0.6f, Easing.EaseOutBack)
-            );
+            composite.StartCouroutine(AnimationUtility.AnimatePosToPosWithEasing(turnToken.transform, startPos, upPos, 0.6f, Easing.EaseOutBack));
             yield return new WaitForSeconds(0.1f);
             yield return turnToken.DoChangeAnimation(0.4f);
             yield return new WaitForSeconds(0.05f);
-
-            yield return AnimationUtility.AnimatePosToPosWithEasing(turnToken.transform, upPos, GameClient.GetTurnTokenPosition(isFirstPlayer), 0.95f, Easing.EaseInOutCubic);
+            Vector3 turnTokenPos = gameClient.IsPlayer1 ? gameClient.ownGameBoard.GetTurnTokenPosition() : gameClient.opponentGameBoard.GetTurnTokenPosition();
+            yield return AnimationUtility.AnimatePosToPosWithEasing(turnToken.transform, upPos, turnTokenPos, 0.95f, Easing.EaseInOutCubic);
             yield return new WaitForSeconds(0.55f);
 
             // Display initial game tokens
@@ -209,14 +209,14 @@ public class SetupPhaseState : ClientPhaseState
             float tokenWaitTime = 0.06f;
             float lastAnimateEndTime = 0.0f;
 
-            displayTokens = new List<GameObject>();
-            for (int i = 0; i < data.initialGameTokenIDs.Length; i++)
+            displayTokens = new List<DisplayToken>();
+            for (int i = 0; i < data.initialGameTokenInstances.Length; i++)
             {
                 int x = i % tokenGridWidth;
                 int y = i / tokenGridWidth;
 
                 Vector3 targetPos = new Vector3(x * spacing + offsetX, 0.15f, -y * spacing + offsetY);
-                GameObject displayToken = TokenManager.Instance.CreateDisplayToken(data.initialGameTokenIDs[i], gameClient.bagObject.transform.position);
+                DisplayToken displayToken = TokenManager.Instance.CreateDisplayToken(data.initialGameTokenInstances[i], gameClient.bagObject.transform.position);
                 displayTokens.Add(displayToken);
 
                 float tokenTimeStart = tokenWaitTime * i;
@@ -251,9 +251,21 @@ public class SetupPhaseState : ClientPhaseState
             // Delete them all once theyre all back in the bag
             for (int i = 0; i < displayTokens.Count; i++)
             {
-                GameObject.Destroy(displayTokens[i]);
+                displayTokens[i].InstantDestroy();
             }
             displayTokens.Clear();
+
+            // Make player draw the 6 tokens then let them discard down to 4
+            Coroutine ownDraw = composite.StartCouroutine(gameClient.ownGameBoard.DrawTokens(gameClient.IsPlayer1 ? data.player1DraftTokenInstances : data.player2DraftTokenInstances));
+            Coroutine otherDraw = composite.StartCouroutine(gameClient.opponentGameBoard.DrawTokens(gameClient.IsPlayer1 ? data.player2DraftTokenInstances : data.player1DraftTokenInstances));
+
+            yield return ownDraw;
+            yield return otherDraw;
+
+            yield return gameClient.ownGameBoard.DiscardUntilAmount(4);
+
+            // Start the game
+            Debug.Log("Start");
         }
 
         CompositeCoroutine composite = new CompositeCoroutine(gameClient);

@@ -16,9 +16,15 @@ public static class AnimationUtility
         Vector3 end,
         float liftHeight,
         float totalTime,
-        float moveStartPct = 0.2f,
-        float moveEndPct = 1.0f)
+        float moveStartPct,
+        float moveEndPct,
+        Func<float, float> easingFunction = null)
     {
+        if (easingFunction == null)
+        {
+            easingFunction = Easing.Identity;
+        }
+
         float time = 0f;
         while (time < totalTime)
         {
@@ -44,8 +50,13 @@ public static class AnimationUtility
         Vector3 start,
         Vector3 end,
         float totalTime,
-        Func<float, float> easingFunction)
+        Func<float, float> easingFunction = null)
     {
+        if (easingFunction == null)
+        {
+            easingFunction = Easing.Identity;
+        }
+
         float time = 0f;
         while (time < totalTime)
         {

@@ -41,27 +41,27 @@ public class GameServer : MonoBehaviour
         // Initialize game state
         currentRound = 1;
         firstPlayerClientID = clientIDs[Random.Range(0, 2)];
-        currentGameTokenIDs = TokenManager.Instance.GetTokenSelection(24);
-        string[] initialGameTokenIDs = currentGameTokenIDs.ToArray();
+        currentGameTokenInstances = TokenManager.Instance.GetTokenSelection(24);
+        TokenInstance[] initialGameTokenInstances = currentGameTokenInstances.ToArray();
 
         // Take from top of available tokens for each players draft
-        List<string> player1DraftTokenIDs = new List<string>();
-        List<string> player2DraftTokenIDs = new List<string>();
+        List<TokenInstance> player1DraftTokenIDs = new List<TokenInstance>();
+        List<TokenInstance> player2DraftTokenIDs = new List<TokenInstance>();
         for (int i = 0; i < 6; i++)
         {
-            player1DraftTokenIDs.Add(currentGameTokenIDs[0]);
-            currentGameTokenIDs.RemoveAt(0);
-            player2DraftTokenIDs.Add(currentGameTokenIDs[0]);
-            currentGameTokenIDs.RemoveAt(0);
+            player1DraftTokenIDs.Add(currentGameTokenInstances[0]);
+            currentGameTokenInstances.RemoveAt(0);
+            player2DraftTokenIDs.Add(currentGameTokenInstances[0]);
+            currentGameTokenInstances.RemoveAt(0);
         }
 
         // Send setup game state to clients
         ClientSetupPhaseData clientData = new ClientSetupPhaseData();
         clientData.firstPlayerClientID = firstPlayerClientID;
-        clientData.initialGameTokenIDs = initialGameTokenIDs;
-        clientData.player1DraftTokenIDs = player1DraftTokenIDs.ToArray();
-        clientData.player2DraftTokenIDs = player2DraftTokenIDs.ToArray();
-        GameManager.Instance.GameStartClientRpc(clientData);
+        clientData.initialGameTokenInstances = initialGameTokenInstances;
+        clientData.player1DraftTokenInstances = player1DraftTokenIDs.ToArray();
+        clientData.player2DraftTokenInstances = player2DraftTokenIDs.ToArray();
+        GameManager.Instance.GameStartedClientRpc(clientData);
     }
 
     public void ResetGamePhase()
@@ -75,7 +75,7 @@ public class GameServer : MonoBehaviour
     private GamePhase gamePhase;
     private int currentRound;
     private ulong firstPlayerClientID;
-    private List<string> currentGameTokenIDs;
+    private List<TokenInstance> currentGameTokenInstances;
 
     private void Awake()
     {

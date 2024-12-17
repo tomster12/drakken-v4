@@ -2,6 +2,11 @@ using UnityEngine;
 
 public static class Easing
 {
+    public static float Identity(float t)
+    {
+        return t;
+    }
+
     public static float EaseOutSin(float t)
     {
         return Mathf.Sin(t * Mathf.PI * 0.5f);

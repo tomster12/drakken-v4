@@ -9,10 +9,11 @@ public class CompositeCoroutine
         this.mb = mb;
     }
 
-    public CompositeCoroutine StartCouroutine(IEnumerator enumerable)
+    public Coroutine StartCouroutine(IEnumerator enumerable)
     {
-        coroutines.Add(mb.StartCoroutine(enumerable));
-        return this;
+        Coroutine cr = mb.StartCoroutine(enumerable);
+        coroutines.Add(cr);
+        return cr;
     }
 
     public void Stop()
