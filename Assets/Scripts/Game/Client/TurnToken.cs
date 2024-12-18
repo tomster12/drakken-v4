@@ -1,10 +1,12 @@
 using System.Collections;
+using System.Threading;
+using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
 
 public class TurnToken : MonoBehaviour
 {
-    public IEnumerator DoFlipAnimation(bool isFirst, float totalTime, float height, int flipCount)
+    public async Task DoFlipAnimation(CancellationToken ctoken, bool isFirst, float totalTime, float height, int flipCount)
     {
         Vector3 bottomPos = transform.position;
         Vector3 topPos = bottomPos + Vector3.up * height;
@@ -17,13 +19,13 @@ public class TurnToken : MonoBehaviour
         while (time < totalTime)
         {
             time += Time.deltaTime;
-            float t = time / totalTime;
+            float t = Mathf.Clamp01(time / totalTime);
 
-            // Lerp smoothly (sin(0.5 * PI) = 1)
+            // Lerp up and down smoothly (sin(0.5 * PI) = 1)
             float heightT = Mathf.Sin(t * Mathf.PI);
             Vector3 position = Vector3.Lerp(bottomPos, topPos, heightT);
 
-            // Add additional x rotation to the rotation lerp
+            // Lerp towards the end rotation with additional x-axis rotation
             float rotationT = t * flipCount * 360;
             Vector3 rotation = Vector3.Lerp(Vector3.zero, endRotation, t);
             rotation.x += rotationT;
@@ -31,31 +33,33 @@ public class TurnToken : MonoBehaviour
             token.transform.position = position;
             token.transform.eulerAngles = rotation;
 
-            yield return null;
+            await Task.Yield();
+            ctoken.ThrowIfCancellationRequested();
         }
 
         token.transform.position = bottomPos;
         token.transform.eulerAngles = endRotation;
     }
 
-    public IEnumerator DoChangeAnimation(float totalTime)
+    public async Task DoChangeAnimation(CancellationToken ctoken, float totalTime)
     {
         float time = 0f;
         while (time < totalTime)
         {
             time += Time.deltaTime;
-            float t = time / totalTime;
+            float t = Mathf.Clamp01(time / totalTime);
 
+            // Flip the token 180 and change the text halfway through
             float rotationT = t * 180;
             token.transform.eulerAngles = new Vector3(0, 0, rotationT);
-
             if (t > 0.5f)
             {
                 topText.text = "X";
                 bottomText.text = "X";
             }
 
-            yield return null;
+            await Task.Yield();
+            ctoken.ThrowIfCancellationRequested();
         }
     }
 

@@ -1,8 +1,8 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.Assertions;
 
 public class GameBoard : MonoBehaviour
 {
@@ -18,12 +18,14 @@ public class GameBoard : MonoBehaviour
         tokens.Clear();
     }
 
-    public IEnumerator DrawTokens(TokenInstance[] tokenInstances)
+    public async Task DrawTokens(CancellationToken ctoken, TokenInstance[] tokenInstances)
     {
+        List<Task> animationTasks = new();
+
         foreach (TokenInstance tokenInstance in tokenInstances)
         {
+            // Only show the token icon if this is the local player
             DisplayToken displayToken;
-
             if (isLocalPlayer)
             {
                 displayToken = TokenManager.Instance.CreateDisplayToken(tokenInstance, bagObject.transform.position);
@@ -33,34 +35,22 @@ public class GameBoard : MonoBehaviour
             {
                 displayToken = TokenManager.Instance.CreateDisplayToken(null, bagObject.transform.position);
             }
-
             tokens.Add(displayToken);
 
+            // Animate the token from the bag to the board
             Vector3 targetPosition = GetTokenPosition(tokens.Count - 1);
-            yield return AnimationUtility.AnimatePosToPosWithLift(displayToken.transform, bagObject.transform.position, targetPosition, 6.0f, 0.65f, 0.2f, 1.0f);
+            animationTasks.Add(AnimationUtility.AnimatePosToPosWithLift(ctoken, displayToken.transform, bagObject.transform.position, targetPosition, 6.0f, 0.65f, 0.2f, 1.0f));
         }
+
+        await Task.WhenAll(animationTasks);
     }
 
-    public IEnumerator DiscardUntilAmount(int amount)
+    public void SetTokenMode(TokenInteractMode tokenInteractMode)
     {
-        Assert.IsTrue(tokens.Count > amount);
-        Assert.IsFalse(isDiscarding);
-
-        isDiscarding = true;
-
         foreach (DisplayToken displayToken in tokens)
         {
-            displayToken.SetTokenInteractMode(TokenInteractMode.DISCARDING);
+            displayToken.SetTokenInteractMode(tokenInteractMode);
         }
-
-        yield return new WaitUntil(() => tokens.Count <= amount);
-
-        foreach (DisplayToken displayToken in tokens)
-        {
-            displayToken.SetTokenInteractMode(TokenInteractMode.NONE);
-        }
-
-        isDiscarding = false;
     }
 
     public Vector3 GetTurnTokenPosition()
@@ -81,17 +71,16 @@ public class GameBoard : MonoBehaviour
 
     [Header("Config")]
     [SerializeField] private bool isLocalPlayer;
-    private List<DisplayToken> tokens = new List<DisplayToken>();
-    private bool isDiscarding;
+    private List<DisplayToken> tokens = new();
+    private TokenInteractMode tokenInteractMode = TokenInteractMode.NONE;
 
     private void OnTokenInteract(DisplayToken displayToken)
     {
-        if (isDiscarding)
+        if (tokenInteractMode == TokenInteractMode.DISCARDING)
         {
-            displayToken.InstantDestroy();
-            int index = tokens.IndexOf(displayToken);
             tokens.Remove(displayToken);
-            OnTokenDiscard?.Invoke(index);
+            displayToken.InstantDestroy();
+            OnTokenDiscard(tokens.Count);
         }
     }
 }

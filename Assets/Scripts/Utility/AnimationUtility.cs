@@ -1,16 +1,19 @@
 using System;
 using System.Collections;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 
 public static class AnimationUtility
 {
-    public static IEnumerator StartAfterDuration(float duration, IEnumerator action)
+    public static async Task DelayTask(CancellationToken ctoken, int delay, Func<Task> taskFunc)
     {
-        yield return new WaitForSeconds(duration);
-        yield return action;
+        await Task.Delay(delay, ctoken);
+        await taskFunc();
     }
 
-    public static IEnumerator AnimatePosToPosWithLift(
+    public static async Task AnimatePosToPosWithLift(
+        CancellationToken ctoken,
         Transform target,
         Vector3 start,
         Vector3 end,
@@ -20,51 +23,48 @@ public static class AnimationUtility
         float moveEndPct,
         Func<float, float> easingFunction = null)
     {
-        if (easingFunction == null)
-        {
-            easingFunction = Easing.Identity;
-        }
+        easingFunction ??= Easing.Identity;
 
         float time = 0f;
         while (time < totalTime)
         {
             time += Time.deltaTime;
-            float pct = time / totalTime;
+            float pct = Mathf.Clamp01(time / totalTime);
 
             float liftPct = Mathf.Sin(pct * Mathf.PI);
             Vector3 liftOffset = Vector3.up * (liftHeight * liftPct);
 
-            float targetPct = (pct - moveStartPct) / (moveEndPct - moveStartPct);
-            targetPct = Mathf.Min(Mathf.Max(targetPct, 0.0f), 1.0f);
+            float targetPct = Mathf.Clamp01((pct - moveStartPct) / (moveEndPct - moveStartPct));
             Vector3 movePos = Vector3.Lerp(start, end, targetPct) + liftOffset;
             target.position = movePos;
 
-            yield return null;
+            await Task.Yield();
+            ctoken.ThrowIfCancellationRequested();
         }
 
         target.position = end;
     }
 
-    public static IEnumerator AnimatePosToPosWithEasing(
+    public static async Task AnimatePosToPosWithEasing(
+        CancellationToken ctoken,
         Transform target,
         Vector3 start,
         Vector3 end,
         float totalTime,
         Func<float, float> easingFunction = null)
     {
-        if (easingFunction == null)
-        {
-            easingFunction = Easing.Identity;
-        }
+        easingFunction ??= Easing.Identity;
 
         float time = 0f;
         while (time < totalTime)
         {
             time += Time.deltaTime;
-            float pct = time / totalTime;
+            float pct = Mathf.Clamp01(time / totalTime);
             float easedPct = easingFunction(pct);
             target.position = start + (end - start) * easedPct;
-            yield return null;
+
+            await Task.Yield();
+            ctoken.ThrowIfCancellationRequested();
         }
 
         target.position = end;
