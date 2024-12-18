@@ -2,6 +2,11 @@ using NUnit.Framework;
 using Unity.Netcode;
 using UnityEngine;
 
+// This class manages enabling / disabling game objects based on the network role
+// Also acts as a communication bridge between the server and client
+// - Server setup   -> OnNetworkSpawn() : server.OnNetworkStart()
+// - Client connect -> Awake()          : client.OnNetworkConnect()
+
 public class GameManager : NetworkBehaviour
 {
     public static GameManager Instance;
@@ -17,33 +22,41 @@ public class GameManager : NetworkBehaviour
 
         NetworkManager.Singleton.OnClientConnectedCallback += (clientId) =>
         {
+            // We as the client are connecting to the server
             if (IsClient)
             {
                 Assert.AreEqual(NetworkManager.Singleton.LocalClientId, clientId);
-                client.OnNetworkConnect();
                 Destroy(server);
+                client.gameObject.SetActive(true);
+                client.OnNetworkConnect();
             }
         };
 
         NetworkManager.Singleton.OnClientDisconnectCallback += (clientId) =>
         {
+            // Server has heard that a client has disconnected
             if (IsServer)
             {
                 GameServer.Instance.OnClientDisconnect(clientId);
             }
+
+            // We as the client are disconnecting from the server
             else if (IsClient)
             {
                 client.OnNetworkDisconnect();
+                client.gameObject.SetActive(false);
             }
         };
     }
 
     public override void OnNetworkSpawn()
     {
+        // Server is starting up
         if (IsServer)
         {
-            server.OnSpawn();
             Destroy(client);
+            server.gameObject.SetActive(true);
+            server.OnNetworkStart();
         }
     }
 

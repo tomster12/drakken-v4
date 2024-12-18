@@ -2,20 +2,32 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Unity.Properties;
 using UnityEngine;
 
 public class GameBoard : MonoBehaviour
 {
+    public List<DisplayToken> Tokens { get; private set; }
     public Action<int> OnTokenDiscard = delegate { };
 
-    public void HardReset()
+    public void Init(bool isLocalBoard)
     {
-        foreach (DisplayToken displayToken in tokens)
+        this.isLocalBoard = isLocalBoard;
+        Tokens = new List<DisplayToken>();
+
+        ResetBoard();
+    }
+
+    public void ResetBoard()
+    {
+        foreach (DisplayToken displayToken in Tokens)
         {
             displayToken.InstantDestroy();
         }
 
-        tokens.Clear();
+        Tokens.Clear();
+
+        OnTokenDiscard = delegate { };
     }
 
     public async Task DrawTokens(CancellationToken ctoken, TokenInstance[] tokenInstances)
@@ -26,7 +38,7 @@ public class GameBoard : MonoBehaviour
         {
             // Only show the token icon if this is the local player
             DisplayToken displayToken;
-            if (isLocalPlayer)
+            if (isLocalBoard)
             {
                 displayToken = TokenManager.Instance.CreateDisplayToken(tokenInstance, bagObject.transform.position);
                 displayToken.OnInteract += OnTokenInteract;
@@ -35,10 +47,10 @@ public class GameBoard : MonoBehaviour
             {
                 displayToken = TokenManager.Instance.CreateDisplayToken(null, bagObject.transform.position);
             }
-            tokens.Add(displayToken);
+            Tokens.Add(displayToken);
 
             // Animate the token from the bag to the board
-            Vector3 targetPosition = GetTokenPosition(tokens.Count - 1);
+            Vector3 targetPosition = GetTokenPosition(Tokens.Count - 1);
             animationTasks.Add(AnimationUtility.AnimatePosToPosWithLift(ctoken, displayToken.transform, bagObject.transform.position, targetPosition, 6.0f, 0.65f, 0.2f, 1.0f));
         }
 
@@ -47,7 +59,9 @@ public class GameBoard : MonoBehaviour
 
     public void SetTokenMode(TokenInteractMode tokenInteractMode)
     {
-        foreach (DisplayToken displayToken in tokens)
+        this.tokenInteractMode = tokenInteractMode;
+
+        foreach (DisplayToken displayToken in Tokens)
         {
             displayToken.SetTokenInteractMode(tokenInteractMode);
         }
@@ -60,7 +74,7 @@ public class GameBoard : MonoBehaviour
 
     public Vector3 GetTokenPosition(int index)
     {
-        return tokenSpacingTfm.position + tokenSpacingTfm.right * tokenSpacingTfm.localScale.x * index;
+        return tokenSpacingTfm.position + index * tokenSpacingTfm.localScale.x * tokenSpacingTfm.right;
     }
 
     [Header("References")]
@@ -69,18 +83,16 @@ public class GameBoard : MonoBehaviour
     [SerializeField] private Transform turnTokenTfm;
     [SerializeField] private GameObject bagObject;
 
-    [Header("Config")]
-    [SerializeField] private bool isLocalPlayer;
-    private List<DisplayToken> tokens = new();
+    private bool isLocalBoard;
     private TokenInteractMode tokenInteractMode = TokenInteractMode.NONE;
 
     private void OnTokenInteract(DisplayToken displayToken)
     {
         if (tokenInteractMode == TokenInteractMode.DISCARDING)
         {
-            tokens.Remove(displayToken);
+            Tokens.Remove(displayToken);
             displayToken.InstantDestroy();
-            OnTokenDiscard(tokens.Count);
+            OnTokenDiscard(Tokens.Count);
         }
     }
 }

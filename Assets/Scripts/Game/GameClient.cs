@@ -1,11 +1,7 @@
-using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Unity.Netcode;
-using Unity.VisualScripting;
-using UnityEditor.PackageManager;
-using UnityEditor.Playables;
 using UnityEngine;
 using UnityEngine.Assertions;
 
@@ -13,39 +9,35 @@ public class GameClient : MonoBehaviour
 {
     public static GameClient Instance;
 
+    public bool IsConnected { get; private set; }
+    public ulong MyClientID { get; private set; }
+    public ulong OpClientID { get; private set; }
+    public bool IsPlayer1 { get; private set; }
+    public bool IsFirstTurn { get; private set; }
+    public GameObject OpPlayerObject { get; set; }
+
     [Header("References")]
     [SerializeField] public GameObject TurnTokenPrefab;
-    [SerializeField] public GameObject OtherPlayerPrefab;
+    [SerializeField] public GameObject opPlayerObjectPrefab;
     [SerializeField] public GameObject bagObject;
-    [SerializeField] public GameBoard ownGameBoard;
-    [SerializeField] public GameBoard opponentGameBoard;
-
-    public ulong OwnClientID { get; private set; }
-    public bool IsConnected { get; private set; }
-    [HideInInspector] public GameObject OtherPlayerObject;
-    [HideInInspector] public bool IsPlayer1;
+    [SerializeField] public GameBoard myBoard;
+    [SerializeField] public GameBoard opBoard;
 
     public void OnNetworkConnect()
     {
         IsConnected = true;
 
-        // Initialize variables
-        OwnClientID = NetworkManager.Singleton.LocalClientId;
         phaseStates = new Dictionary<GamePhase, ClientPhaseState>
         {
             { GamePhase.CONNECTING, new ConnectingPhaseState(this) },
             { GamePhase.SETUP, new SetupPhaseState(this) }
         };
 
-        // Start in connecting phase
-        gamePhase = null;
-        currentPhaseState = phaseStates[GamePhase.CONNECTING];
-        currentPhaseState.Enter(null);
+        TransitionToPhase(GamePhase.CONNECTING);
 
-        // Tell the game server we are a new client
         // We only want to do this once when the client is spawned
-        // The connecting state doesn't handle this connection
-        // If GameClient (this class) exists then we are connected so can just connect
+        // If we have reached this point then we are connected, so just try connect to game
+        // The connecting state runs while we wait
         GameManager.Instance.ConnectToGameServerRpc();
     }
 
@@ -54,11 +46,19 @@ public class GameClient : MonoBehaviour
         IsConnected = false;
 
         // Exit out of the current phase
-        currentPhaseState.Exit(null);
+        currentGamePhaseState.Exit(null);
     }
 
     public void OnGameStarted(ClientSetupPhaseData data)
     {
+        // Set the client IDs
+        MyClientID = NetworkManager.Singleton.LocalClientId;
+        IsPlayer1 = MyClientID == data.player1ClientID;
+        OpClientID = IsPlayer1 ? data.player2ClientID : data.player1ClientID;
+        IsFirstTurn = MyClientID == data.firstTurnClientID;
+
+        // Transition into SETUP phase
+        Assert.AreEqual(GamePhase.CONNECTING, currentGamePhase);
         ((SetupPhaseState)phaseStates[GamePhase.SETUP]).SetData(data);
         TransitionToPhase(GamePhase.SETUP);
     }
@@ -70,14 +70,14 @@ public class GameClient : MonoBehaviour
 
     public void TransitionToPhase(GamePhase gamePhase)
     {
-        currentPhaseState?.Exit(gamePhase);
-        currentPhaseState = phaseStates[gamePhase];
-        currentPhaseState?.Enter(this.gamePhase);
-        this.gamePhase = gamePhase;
+        currentGamePhaseState?.Exit(gamePhase);
+        currentGamePhaseState = phaseStates[gamePhase];
+        currentGamePhaseState?.Enter(this.currentGamePhase);
+        this.currentGamePhase = gamePhase;
     }
 
-    private GamePhase? gamePhase;
-    private ClientPhaseState currentPhaseState;
+    private GamePhase? currentGamePhase;
+    private ClientPhaseState currentGamePhaseState;
     private Dictionary<GamePhase, ClientPhaseState> phaseStates;
 
     private void Awake()
@@ -88,12 +88,12 @@ public class GameClient : MonoBehaviour
 
     private void OnDestroy()
     {
-        currentPhaseState?.Exit(null);
+        currentGamePhaseState?.Exit(null);
     }
 
     private void OnApplicationQuit()
     {
-        currentPhaseState?.Exit(null);
+        currentGamePhaseState?.Exit(null);
     }
 }
 
@@ -139,9 +139,15 @@ public class SetupPhaseState : ClientPhaseState
     {
         Assert.IsNotNull(data);
 
-        // Start the main logic and listen to cancellation
+        // Start the main logic with a try catch
         mainLogicCTS = new CancellationTokenSource();
-        Task mainLogicTask = StartMainLogic(mainLogicCTS.Token);
+        StartMainLogic(mainLogicCTS.Token).ContinueWith(task =>
+        {
+            if (task.IsFaulted)
+            {
+                Debug.LogError("Main logic faulted: " + task.Exception);
+            }
+        });
     }
 
     public override void Exit(GamePhase? nextPhase)
@@ -152,8 +158,8 @@ public class SetupPhaseState : ClientPhaseState
         mainLogicCTS = null;
 
         // Destroy all game objects
-        GameObject.Destroy(gameClient.OtherPlayerObject);
-        gameClient.OtherPlayerObject = null;
+        GameObject.Destroy(gameClient.OpPlayerObject);
+        gameClient.OpPlayerObject = null;
 
         if (turnToken != null)
         {
@@ -170,8 +176,8 @@ public class SetupPhaseState : ClientPhaseState
             displayTokens = null;
         }
 
-        gameClient.ownGameBoard.HardReset();
-        gameClient.opponentGameBoard.HardReset();
+        gameClient.myBoard.ResetBoard();
+        gameClient.opBoard.ResetBoard();
 
         data = null;
     }
@@ -188,11 +194,13 @@ public class SetupPhaseState : ClientPhaseState
 
     private async Task StartMainLogic(CancellationToken ctoken)
     {
-        gameClient.IsPlayer1 = gameClient.OwnClientID == data.firstPlayerClientID;
+        // Initialize game boards
+        gameClient.myBoard.Init(isLocalBoard: true);
+        gameClient.opBoard.Init(isLocalBoard: false);
 
-        // Spawn in other player
-        gameClient.OtherPlayerObject = GameObject.Instantiate(gameClient.OtherPlayerPrefab);
-        gameClient.OtherPlayerObject.transform.position = new(0.0f, -2.0f, 30.0f);
+        // Spawn in other player object
+        gameClient.OpPlayerObject = GameObject.Instantiate(gameClient.opPlayerObjectPrefab);
+        gameClient.OpPlayerObject.transform.position = new(0.0f, -2.0f, 30.0f);
 
         // Spawn in turn token and flip to show first player
         Vector3 startPos = new(0.0f, 0.15f, 0.0f);
@@ -200,7 +208,7 @@ public class SetupPhaseState : ClientPhaseState
         turnToken = turnTokenObject.GetComponent<TurnToken>();
         ParticleManager.Instance.SpawnPoof(startPos);
         await Task.Delay(850, ctoken);
-        await turnToken.DoFlipAnimation(ctoken, gameClient.IsPlayer1, 1.0f, 4.0f, 2);
+        await turnToken.DoFlipAnimation(ctoken, gameClient.IsFirstTurn, 1.0f, 4.0f, 2);
         await Task.Delay(300, ctoken);
 
         // Raise the turn token upwards, change to indicator, then move to position
@@ -209,7 +217,7 @@ public class SetupPhaseState : ClientPhaseState
         await Task.Delay(100, ctoken);
         await turnToken.DoChangeAnimation(ctoken, 0.4f);
         await Task.Delay(50, ctoken);
-        Vector3 turnTokenPos = gameClient.IsPlayer1 ? gameClient.ownGameBoard.GetTurnTokenPosition() : gameClient.opponentGameBoard.GetTurnTokenPosition();
+        Vector3 turnTokenPos = gameClient.IsFirstTurn ? gameClient.myBoard.GetTurnTokenPosition() : gameClient.opBoard.GetTurnTokenPosition();
         await AnimationUtility.AnimatePosToPosWithEasing(ctoken, turnToken.transform, upPos, turnTokenPos, 0.95f, Easing.EaseInOutCubic);
         await Task.Delay(550, ctoken);
 
@@ -260,13 +268,25 @@ public class SetupPhaseState : ClientPhaseState
 
         displayTokens.Clear();
 
-        // Make player draw the 6 tokens then let them discard down to 4
+        // Make player draw the 6 tokens
         await Task.WhenAll(
-            gameClient.ownGameBoard.DrawTokens(ctoken, gameClient.IsPlayer1 ? data.player1DraftTokenInstances : data.player2DraftTokenInstances),
-            gameClient.opponentGameBoard.DrawTokens(ctoken, gameClient.IsPlayer1 ? data.player2DraftTokenInstances : data.player1DraftTokenInstances)
+            gameClient.myBoard.DrawTokens(ctoken, gameClient.IsPlayer1 ? data.player1DraftTokenInstances : data.player2DraftTokenInstances),
+            gameClient.opBoard.DrawTokens(ctoken, gameClient.IsPlayer1 ? data.player2DraftTokenInstances : data.player1DraftTokenInstances)
         );
 
-        // Start the game
-        Debug.Log("Start");
+        // Listen and wait until discarded down to 4
+        TaskCompletionSource<bool> discardTask = new();
+        void OnBoardTokenDiscarded(int index)
+        {
+            if (gameClient.myBoard.Tokens.Count <= 4)
+            {
+                discardTask.SetResult(true);
+            }
+        }
+        gameClient.myBoard.OnTokenDiscard += OnBoardTokenDiscarded;
+        gameClient.myBoard.SetTokenMode(TokenInteractMode.DISCARDING);
+        await discardTask.Task;
+        gameClient.myBoard.SetTokenMode(TokenInteractMode.NONE);
+        gameClient.myBoard.OnTokenDiscard -= OnBoardTokenDiscarded;
     }
 }

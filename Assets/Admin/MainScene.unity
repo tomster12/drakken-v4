@@ -1002,7 +1002,7 @@ GameObject:
   - component: {fileID: 822396657}
   - component: {fileID: 822396656}
   m_Layer: 0
-  m_Name: Opponent Game Board
+  m_Name: Op Game Board
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1021,10 +1021,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   board: {fileID: 822396660}
-  bagObject: {fileID: 681177510}
   tokenSpacingTfm: {fileID: 699431166}
   turnTokenTfm: {fileID: 1907878734}
-  isLocalPlayer: 1
+  bagObject: {fileID: 681177510}
 --- !u!65 &822396657
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -1658,7 +1657,7 @@ GameObject:
   - component: {fileID: 2059160124}
   - component: {fileID: 2059160128}
   m_Layer: 0
-  m_Name: Own Game Board
+  m_Name: My Game Board
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1768,10 +1767,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   board: {fileID: 2059160127}
-  bagObject: {fileID: 681177510}
   tokenSpacingTfm: {fileID: 818919751}
   turnTokenTfm: {fileID: 94865833}
-  isLocalPlayer: 1
+  bagObject: {fileID: 681177510}
 --- !u!4 &37639390616250365
 Transform:
   m_ObjectHideFlags: 0
@@ -1803,7 +1801,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &3824159925671494916
 Transform:
   m_ObjectHideFlags: 0
@@ -1832,12 +1830,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   TurnTokenPrefab: {fileID: 1423939804450121160, guid: 6214c54c387c1d94a84bdcca6a13701e, type: 3}
-  OtherPlayerPrefab: {fileID: 1094528684000443999, guid: e6a3bb62b4c59e64ab07de428297bde0, type: 3}
+  opPlayerObjectPrefab: {fileID: 1094528684000443999, guid: e6a3bb62b4c59e64ab07de428297bde0, type: 3}
   bagObject: {fileID: 681177510}
-  ownGameBoard: {fileID: 2059160128}
-  opponentGameBoard: {fileID: 822396656}
-  OtherPlayerObject: {fileID: 0}
-  IsPlayer1: 0
+  myBoard: {fileID: 2059160128}
+  opBoard: {fileID: 822396656}
 --- !u!1 &7742697563510348882
 GameObject:
   m_ObjectHideFlags: 0
@@ -1854,7 +1850,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &8638594802030651492
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1873,17 +1869,17 @@ SceneRoots:
   m_Roots:
   - {fileID: 1361002423}
   - {fileID: 269364777}
-  - {fileID: 350157199}
   - {fileID: 113177106}
   - {fileID: 1050699113}
+  - {fileID: 350157199}
   - {fileID: 3824159925671494916}
   - {fileID: 37639390616250365}
   - {fileID: 2028253387}
+  - {fileID: 1925383375}
+  - {fileID: 832575519}
   - {fileID: 796265496}
   - {fileID: 330585546}
   - {fileID: 410087041}
-  - {fileID: 832575519}
-  - {fileID: 1925383375}
   - {fileID: 681177511}
   - {fileID: 1034692359}
   - {fileID: 2059160127}
