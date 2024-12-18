@@ -1,88 +1,45 @@
-using NUnit.Framework;
-using Unity.Netcode;
 using UnityEngine;
+using Unity.Multiplayer.Playmode;
+using System.Linq;
 
-// This class manages enabling / disabling game objects based on the network role
-// Also acts as a communication bridge between the server and client
-// - Server setup   -> OnNetworkSpawn() : server.OnNetworkStart()
-// - Client connect -> Awake()          : client.OnNetworkConnect()
-
-public class GameManager : NetworkBehaviour
+public class GameManager : MonoBehaviour
 {
-    public static GameManager Instance;
-
     [Header("References")]
     [SerializeField] private GameClient client;
     [SerializeField] private GameServer server;
 
-    private void Awake()
+    private void Start()
     {
-        Assert.IsNull(Instance);
-        Instance = this;
-
-        NetworkManager.Singleton.OnClientConnectedCallback += (clientId) =>
+        // If you detect batch mode then you are in a headless environment therefore server
+        if (Application.isBatchMode)
         {
-            // We as the client are connecting to the server
-            if (IsClient)
-            {
-                Assert.AreEqual(NetworkManager.Singleton.LocalClientId, clientId);
-                Destroy(server);
-                client.gameObject.SetActive(true);
-                client.OnNetworkConnect();
-            }
-        };
+            StartServer();
+        }
 
-        NetworkManager.Singleton.OnClientDisconnectCallback += (clientId) =>
+        // Otherwise, check if the current player has the MPPM "Server" tag, otherwise just run client
+        else
         {
-            // Server has heard that a client has disconnected
-            if (IsServer)
+            var mppmTags = CurrentPlayer.ReadOnlyTags();
+            if (mppmTags.Contains("Server"))
             {
-                GameServer.Instance.OnClientDisconnect(clientId);
+                StartServer();
             }
-
-            // We as the client are disconnecting from the server
-            else if (IsClient)
+            else
             {
-                client.OnNetworkDisconnect();
-                client.gameObject.SetActive(false);
+                StartClient();
             }
-        };
-    }
-
-    public override void OnNetworkSpawn()
-    {
-        // Server is starting up
-        if (IsServer)
-        {
-            Destroy(client);
-            server.gameObject.SetActive(true);
-            server.OnNetworkStart();
         }
     }
 
-    [ServerRpc(RequireOwnership = false)]
-    public void ConnectToGameServerRpc(ServerRpcParams serverRpcParams = default)
+    private void StartClient()
     {
-        ulong clientID = serverRpcParams.Receive.SenderClientId;
-        GameServer.Instance.OnClientConnect(clientID);
+        Destroy(server.gameObject);
+        client.Init();
     }
 
-    [ServerRpc(RequireOwnership = false)]
-    public void DisconnectFromGameServerRpc(ServerRpcParams serverRpcParams = default)
+    private void StartServer()
     {
-        ulong clientID = serverRpcParams.Receive.SenderClientId;
-        GameServer.Instance.OnClientDisconnect(clientID);
-    }
-
-    [ClientRpc]
-    public void GameStartedClientRpc(ClientSetupPhaseData data)
-    {
-        GameClient.Instance.OnGameStarted(data);
-    }
-
-    [ClientRpc]
-    public void GameResetClientRpc()
-    {
-        GameClient.Instance.OnGameReset();
+        Destroy(client.gameObject);
+        server.Init();
     }
 }

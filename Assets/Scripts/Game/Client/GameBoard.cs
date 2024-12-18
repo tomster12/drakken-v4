@@ -2,27 +2,29 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Unity.Properties;
+using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.Assertions;
 
 public class GameBoard : MonoBehaviour
 {
     public List<DisplayToken> Tokens { get; private set; }
     public Action<int> OnTokenDiscard = delegate { };
 
-    public void Init(bool isLocalBoard)
+    public void Init(GameClient gameClient, bool isLocalBoard)
     {
+        this.gameClient = gameClient;
         this.isLocalBoard = isLocalBoard;
         Tokens = new List<DisplayToken>();
-
         ResetBoard();
+        SetupMessaging();
     }
 
     public void ResetBoard()
     {
         foreach (DisplayToken displayToken in Tokens)
         {
-            displayToken.InstantDestroy();
+            displayToken.Destroy();
         }
 
         Tokens.Clear();
@@ -41,6 +43,7 @@ public class GameBoard : MonoBehaviour
             if (isLocalBoard)
             {
                 displayToken = TokenManager.Instance.CreateDisplayToken(tokenInstance, bagObject.transform.position);
+                displayToken.OnHoveredChanged += OnTokenHoveredChanged;
                 displayToken.OnInteract += OnTokenInteract;
             }
             else
@@ -60,11 +63,6 @@ public class GameBoard : MonoBehaviour
     public void SetTokenMode(TokenInteractMode tokenInteractMode)
     {
         this.tokenInteractMode = tokenInteractMode;
-
-        foreach (DisplayToken displayToken in Tokens)
-        {
-            displayToken.SetTokenInteractMode(tokenInteractMode);
-        }
     }
 
     public Vector3 GetTurnTokenPosition()
@@ -84,14 +82,45 @@ public class GameBoard : MonoBehaviour
     [SerializeField] private GameObject bagObject;
 
     private bool isLocalBoard;
+    private GameClient gameClient;
     private TokenInteractMode tokenInteractMode = TokenInteractMode.NONE;
+
+    private void SetupMessaging()
+    {
+        //if (!isLocalBoard)
+        //{
+        //    NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler("TokenHoveredChanged", OnOpTokenHoveredChanged);
+        //}
+    }
+
+    private void OnTokenHoveredChanged(DisplayToken displayToken, bool isHovered)
+    {
+        if (!isLocalBoard) return;
+
+        displayToken.SetHighlighted(isHovered);
+
+        //FastBufferWriter writer = new FastBufferWriter(1024, Allocator.Temp);
+        //writer.WriteValueSafe(Tokens.IndexOf(displayToken));
+        //writer.WriteValueSafe(isHovered);
+        //NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage("TokenHoveredChanged", gameClient.OpClientID, writer);
+    }
+
+    private void OnOpTokenHoveredChanged(ulong senderClientId, FastBufferReader reader)
+    {
+        Assert.IsTrue(!isLocalBoard);
+        Assert.IsTrue(senderClientId == gameClient.OpClientID);
+
+        //reader.ReadValueSafe(out int tokenIndex);
+        //reader.ReadValueSafe(out bool isHighlighted);
+        //Tokens[tokenIndex].SetHighlighted(isHighlighted);
+    }
 
     private void OnTokenInteract(DisplayToken displayToken)
     {
         if (tokenInteractMode == TokenInteractMode.DISCARDING)
         {
             Tokens.Remove(displayToken);
-            displayToken.InstantDestroy();
+            displayToken.Destroy();
             OnTokenDiscard(Tokens.Count);
         }
     }

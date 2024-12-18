@@ -4,10 +4,11 @@ using UnityEngine;
 
 public partial class DisplayToken : MonoBehaviour, IInteractable
 {
+    public Action<DisplayToken, bool> OnHoveredChanged { get; set; }
     public Action<DisplayToken> OnInteract { get; set; }
     public TokenInstance TokenInstance { get; private set; }
 
-    public void SetTokenInstance(TokenInstance tokenInstance)
+    public void Initialize(TokenInstance tokenInstance)
     {
         TokenInstance = tokenInstance;
 
@@ -16,19 +17,16 @@ public partial class DisplayToken : MonoBehaviour, IInteractable
             tokenData = TokenManager.Instance.GetTokenData(tokenInstance.tokenID);
             tokenIDText.text = tokenData.ID;
         }
-
-        interactMode = TokenInteractMode.NONE;
     }
 
-    public void SetTokenInteractMode(TokenInteractMode interactMode)
-    {
-        this.interactMode = interactMode;
-        if (!CanInteract) outline.enabled = false;
-    }
-
-    public void InstantDestroy()
+    public void Destroy()
     {
         Destroy(gameObject);
+    }
+
+    public void SetHighlighted(bool isHighlighted)
+    {
+        outline.enabled = isHighlighted;
     }
 
     [Header("References")]
@@ -36,8 +34,7 @@ public partial class DisplayToken : MonoBehaviour, IInteractable
     [SerializeField] private Outline outline;
 
     private TokenData tokenData;
-    private TokenInteractMode interactMode;
-    private bool CanInteract => interactMode != TokenInteractMode.NONE;
+    private bool isHovered;
 }
 
 // IInteractable
@@ -45,14 +42,17 @@ public partial class DisplayToken : MonoBehaviour, IInteractable
 {
     public void SetHovered(bool isHovered)
     {
-        if (!CanInteract) return;
-        if (!outline) return;
-        outline.enabled = isHovered;
+        if (this == null) return;
+
+        if (isHovered != this.isHovered)
+        {
+            this.isHovered = isHovered;
+            OnHoveredChanged?.Invoke(this, isHovered);
+        }
     }
 
     public void Interact()
     {
-        if (!CanInteract) return;
         OnInteract?.Invoke(this);
     }
 }

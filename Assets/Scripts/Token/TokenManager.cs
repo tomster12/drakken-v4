@@ -78,7 +78,7 @@ public class TokenManager : MonoBehaviour
     {
         GameObject displayTokenObject = Instantiate(displayTokenPrefab, position, Quaternion.identity);
         DisplayToken displayToken = displayTokenObject.GetComponent<DisplayToken>();
-        displayToken.SetTokenInstance(tokenInstance);
+        displayToken.Initialize(tokenInstance);
         return displayToken;
     }
 

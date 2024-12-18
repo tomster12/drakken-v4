@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Assertions;
 
@@ -6,14 +7,22 @@ public class GameServer : MonoBehaviour
 {
     public static GameServer Instance;
 
+    public void Init()
+    {
+        NetworkManager.Singleton.OnServerStarted += () => { OnNetworkStart(); };
+        NetworkManager.Singleton.StartServer();
+    }
+
     public void OnNetworkStart()
     {
+        Debug.Log("Server started");
         playersConnected = 0;
         gamePhase = GamePhase.CONNECTING;
     }
 
-    public void OnClientConnect(ulong clientID)
+    public void OnGameClientConnect(ulong clientID)
     {
+        Debug.Log("Client connected: " + clientID);
         Assert.AreEqual(GamePhase.CONNECTING, gamePhase);
 
         if (playersConnected == 0) player1ClientID = clientID;
@@ -27,7 +36,7 @@ public class GameServer : MonoBehaviour
         }
     }
 
-    public void OnClientDisconnect(ulong clientID)
+    public void OnGameClientDisconnect(ulong clientID)
     {
         // Rotate player IDs if necessary
         if (player1ClientID == clientID)
@@ -76,13 +85,13 @@ public class GameServer : MonoBehaviour
         clientData.initialGameTokenInstances = initialGameTokenInstances;
         clientData.player1DraftTokenInstances = player1DraftTokenIDs.ToArray();
         clientData.player2DraftTokenInstances = player2DraftTokenIDs.ToArray();
-        GameManager.Instance.GameStartedClientRpc(clientData);
+        GameCommunication.Instance.GameStartedClientRpc(clientData);
     }
 
     public void ResetToConnectingPhase()
     {
         gamePhase = GamePhase.CONNECTING;
-        GameManager.Instance.GameResetClientRpc();
+        GameCommunication.Instance.GameResetClientRpc();
     }
 
     private GamePhase gamePhase;

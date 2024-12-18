@@ -9,13 +9,6 @@ public class GameClient : MonoBehaviour
 {
     public static GameClient Instance;
 
-    public bool IsConnected { get; private set; }
-    public ulong MyClientID { get; private set; }
-    public ulong OpClientID { get; private set; }
-    public bool IsPlayer1 { get; private set; }
-    public bool IsFirstTurn { get; private set; }
-    public GameObject OpPlayerObject { get; set; }
-
     [Header("References")]
     [SerializeField] public GameObject TurnTokenPrefab;
     [SerializeField] public GameObject opPlayerObjectPrefab;
@@ -23,30 +16,18 @@ public class GameClient : MonoBehaviour
     [SerializeField] public GameBoard myBoard;
     [SerializeField] public GameBoard opBoard;
 
-    public void OnNetworkConnect()
+    public bool IsConnected { get; private set; }
+    public ulong MyClientID { get; private set; }
+    public ulong OpClientID { get; private set; }
+    public bool IsPlayer1 { get; private set; }
+    public bool IsFirstTurn { get; private set; }
+    public GameObject OpPlayerObject { get; set; }
+
+    public void Init()
     {
-        IsConnected = true;
-
-        phaseStates = new Dictionary<GamePhase, ClientPhaseState>
-        {
-            { GamePhase.CONNECTING, new ConnectingPhaseState(this) },
-            { GamePhase.SETUP, new SetupPhaseState(this) }
-        };
-
-        TransitionToPhase(GamePhase.CONNECTING);
-
-        // We only want to do this once when the client is spawned
-        // If we have reached this point then we are connected, so just try connect to game
-        // The connecting state runs while we wait
-        GameManager.Instance.ConnectToGameServerRpc();
-    }
-
-    public void OnNetworkDisconnect()
-    {
-        IsConnected = false;
-
-        // Exit out of the current phase
-        currentGamePhaseState.Exit(null);
+        NetworkManager.Singleton.OnClientConnectedCallback += (ulong clientID) => { OnNetworkConnect(); };
+        NetworkManager.Singleton.OnClientDisconnectCallback += (ulong clientID) => { OnNetworkDisconnect(); };
+        NetworkManager.Singleton.StartClient();
     }
 
     public void OnGameStarted(ClientSetupPhaseData data)
@@ -94,6 +75,32 @@ public class GameClient : MonoBehaviour
     private void OnApplicationQuit()
     {
         currentGamePhaseState?.Exit(null);
+    }
+
+    private void OnNetworkConnect()
+    {
+        IsConnected = true;
+
+        phaseStates = new Dictionary<GamePhase, ClientPhaseState>
+        {
+            { GamePhase.CONNECTING, new ConnectingPhaseState(this) },
+            { GamePhase.SETUP, new SetupPhaseState(this) }
+        };
+
+        TransitionToPhase(GamePhase.CONNECTING);
+
+        // We only want to do this once when the client is spawned
+        // If we have reached this point then we are connected, so just try connect to game
+        // The connecting state runs while we wait
+        GameCommunication.Instance.ConnectToGameServerRpc();
+    }
+
+    private void OnNetworkDisconnect()
+    {
+        IsConnected = false;
+
+        // Exit out of the current phase
+        currentGamePhaseState.Exit(null);
     }
 }
 
@@ -171,7 +178,7 @@ public class SetupPhaseState : ClientPhaseState
         {
             for (int i = 0; i < displayTokens.Count; i++)
             {
-                displayTokens[i].InstantDestroy();
+                displayTokens[i].Destroy();
             }
             displayTokens = null;
         }
@@ -195,8 +202,8 @@ public class SetupPhaseState : ClientPhaseState
     private async Task StartMainLogic(CancellationToken ctoken)
     {
         // Initialize game boards
-        gameClient.myBoard.Init(isLocalBoard: true);
-        gameClient.opBoard.Init(isLocalBoard: false);
+        gameClient.myBoard.Init(gameClient, true);
+        gameClient.opBoard.Init(gameClient, false);
 
         // Spawn in other player object
         gameClient.OpPlayerObject = GameObject.Instantiate(gameClient.opPlayerObjectPrefab);
@@ -263,7 +270,7 @@ public class SetupPhaseState : ClientPhaseState
         // Delete them all once theyre all back in the bag
         for (int i = 0; i < displayTokens.Count; i++)
         {
-            displayTokens[i].InstantDestroy();
+            displayTokens[i].Destroy();
         }
 
         displayTokens.Clear();
