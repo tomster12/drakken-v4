@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Threading;
 using System.Threading.Tasks;
 using TMPro;
@@ -41,21 +40,51 @@ public class TurnToken : MonoBehaviour
         token.transform.eulerAngles = endRotation;
     }
 
-    public async Task DoChangeAnimation(CancellationToken ctoken, float totalTime)
+    public async Task DoChangeAndPlaceAnimation(CancellationToken ctoken, float totalTime, GameBoard initialBoard)
     {
+        // Setup variables
+        Vector3 startPos = transform.position;
+        Vector3 upPos = transform.position + Vector3.up * 2.5f;
+        float hoverUpPctEnd = 0.5f;
+        float flipPctStart = 0.2f;
+        float flipPctEnd = 0.4f;
+        float hoverDownPctStart = 0.55f;
+
+        // Hover upwards, flip to X, hover to the board location
         float time = 0f;
         while (time < totalTime)
         {
             time += Time.deltaTime;
             float t = Mathf.Clamp01(time / totalTime);
 
-            // Flip the token 180 and change the text halfway through
-            float rotationT = t * 180;
-            token.transform.eulerAngles = new Vector3(0, 0, rotationT);
-            if (t > 0.5f)
+            // Hover upwards
+            if (t < hoverUpPctEnd)
             {
-                topText.text = "X";
-                bottomText.text = "X";
+                float upPct = Mathf.Clamp01(t / hoverUpPctEnd);
+                float easedPct = Easing.EaseOutBack(upPct);
+                transform.position = startPos + (upPos - startPos) * easedPct;
+            }
+
+            // Flip over and change text
+            if (t > flipPctStart && t < flipPctEnd)
+            {
+                float flipPct = Mathf.Clamp01((t - flipPctStart) / (flipPctEnd - flipPctStart));
+                float rotationT = flipPct * 180;
+                token.transform.eulerAngles = new Vector3(0, 0, rotationT);
+
+                if (flipPct > 0.65f)
+                {
+                    topText.text = "X";
+                    bottomText.text = "X";
+                }
+            }
+
+            // Hover to the board location
+            if (t > hoverDownPctStart)
+            {
+                float downPct = Mathf.Clamp01((t - hoverDownPctStart) / (1.0f - hoverDownPctStart));
+                float easedPct = Easing.EaseInOutCubic(downPct);
+                transform.position = upPos + (initialBoard.GetTurnTokenPosition() - upPos) * easedPct;
             }
 
             await Task.Yield();

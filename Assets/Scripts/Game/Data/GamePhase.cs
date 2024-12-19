@@ -1,2 +1,2 @@
 ﻿public enum GamePhase
-{ CONNECTING, SETUP, ROUND };
+{ CONNECTING, SETUP, PLAY };

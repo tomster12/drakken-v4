@@ -1,14 +1,2 @@
 fileFormatVersion: 2
-guid: 6865d402eef5b4d47ab0fc401a53ed93
-MonoImporter:
-  externalObjects: {}
-  serializedVersion: 2
-  defaultReferences:
-  - TurnTokenPrefab: {fileID: 7412432087341152578, guid: de5a52a302e793e46bd670f76f503e5a, type: 3}
-  - OtherPlayerPrefab: {fileID: 1094528684000443999, guid: e6a3bb62b4c59e64ab07de428297bde0, type: 3}
-  - OtherPlayerObject: {instanceID: 0}
-  executionOrder: 0
-  icon: {instanceID: 0}
-  userData: 
-  assetBundleName: 
-  assetBundleVariant: 
+guid: 43ec4108d940ecb41b06f0fae0bb48f8

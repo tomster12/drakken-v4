@@ -2,7 +2,7 @@
 using Unity.Netcode;
 
 [Serializable]
-public class ClientSetupPhaseData : INetworkSerializable
+public class SetupPhaseStartData : INetworkSerializable
 {
     public ulong firstTurnClientID;
     public ulong player1ClientID;

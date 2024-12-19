@@ -12,7 +12,7 @@ public class GameBoard : MonoBehaviour
     public static GameBoard MyGameBoardInstance { get; private set; } = null;
     public static GameBoard OpGameBoardInstance { get; private set; } = null;
 
-    public Action<int> OnTokenDiscard = delegate { };
+    public Action<DisplayToken, int> OnTokenDiscard = delegate { };
     public List<DisplayToken> Tokens { get; private set; }
 
     public void Init(GameClient gameClient, bool isLocalBoard)
@@ -76,6 +76,11 @@ public class GameBoard : MonoBehaviour
         }
 
         await Task.WhenAll(animationTasks);
+
+        for (int i = 0; i < Tokens.Count; i++)
+        {
+            Tokens[i].SetTarget(GetTokenPosition(i), Quaternion.identity, 0.1f, 0.1f);
+        }
     }
 
     public void SetTokenMode(TokenInteractMode tokenInteractMode)
@@ -116,8 +121,14 @@ public class GameBoard : MonoBehaviour
     public void OnOpTokenDiscarded(int index)
     {
         Assert.IsTrue(!isLocalBoard);
+
         Tokens[index].Destroy();
         Tokens.RemoveAt(index);
+
+        for (int i = 0; i < Tokens.Count; i++)
+        {
+            Tokens[i].SetTarget(GetTokenPosition(i), Quaternion.identity, 0.1f, 0.1f);
+        }
     }
 
     [Header("References")]
@@ -142,13 +153,24 @@ public class GameBoard : MonoBehaviour
 
     private void OnTokenInteract(DisplayToken displayToken)
     {
-        if (tokenInteractMode == TokenInteractMode.DISCARDING)
+        if (tokenInteractMode == TokenInteractMode.DISCARDING) DiscardToken(displayToken);
+    }
+
+    private void DiscardToken(DisplayToken displayToken)
+    {
+        Assert.IsTrue(isLocalBoard);
+        Assert.IsTrue(tokenInteractMode == TokenInteractMode.DISCARDING);
+
+        int index = Tokens.IndexOf(displayToken);
+        displayToken.Destroy();
+        Tokens.RemoveAt(index);
+
+        for (int i = 0; i < Tokens.Count; i++)
         {
-            int index = Tokens.IndexOf(displayToken);
-            Tokens.Remove(displayToken);
-            displayToken.Destroy();
-            OnTokenDiscard(Tokens.Count);
-            GameCommunication.Instance.QuickOnTokenDiscardedServerRpc(index);
+            Tokens[i].SetTarget(GetTokenPosition(i), Quaternion.identity, 0.1f, 0.1f);
         }
+
+        OnTokenDiscard(displayToken, index);
+        GameCommunication.Instance.QuickOnTokenDiscardedServerRpc(index);
     }
 }

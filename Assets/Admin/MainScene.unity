@@ -144,7 +144,7 @@ Transform:
   m_GameObject: {fileID: 94865832}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.65, y: 0, z: 0}
+  m_LocalPosition: {x: -0.7, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -280,9 +280,9 @@ MonoBehaviour:
   m_MaxConnectAttempts: 60
   m_DisconnectTimeoutMS: 30000
   ConnectionData:
-    Address: 127.0.0.1
-    Port: 7777
-    ServerListenAddress: 127.0.0.1
+    Address: 9.9.9.9
+    Port: 9999
+    ServerListenAddress: 0.0.0.0
   DebugSimulator:
     PacketDelayMS: 0
     PacketJitterMS: 0
@@ -1498,7 +1498,7 @@ Transform:
   m_GameObject: {fileID: 1907878733}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.65, y: 0, z: 0}
+  m_LocalPosition: {x: -0.7, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1766,9 +1766,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 1708578296935736586}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6865d402eef5b4d47ab0fc401a53ed93, type: 3}
+  m_Script: {fileID: 11500000, guid: 43ec4108d940ecb41b06f0fae0bb48f8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  transport: {fileID: 269364775}
   TurnTokenPrefab: {fileID: 1423939804450121160, guid: 6214c54c387c1d94a84bdcca6a13701e, type: 3}
   opPlayerObjectPrefab: {fileID: 1094528684000443999, guid: e6a3bb62b4c59e64ab07de428297bde0, type: 3}
   bagObject: {fileID: 681177510}
@@ -1803,6 +1804,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 02442e77df82e6440b4be7de48dc5ccc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  transport: {fileID: 269364775}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
