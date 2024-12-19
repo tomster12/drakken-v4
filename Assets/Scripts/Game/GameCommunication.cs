@@ -36,6 +36,32 @@ public class GameCommunication : NetworkBehaviour
         GameClient.Instance.OnGameReset();
     }
 
+    [ServerRpc(RequireOwnership = false)]
+    public void QuickOnTokenHighlightedChangeServerRpc(int index, bool isHighlighted, ServerRpcParams serverRpcParams = default)
+    {
+        ulong otherClientID = server.OtherPlayer(serverRpcParams.Receive.SenderClientId);
+        QuickOnTokenHighlightChangedClientRpc(index, isHighlighted, NetworkUtility.MakeClientRpcParams(otherClientID));
+    }
+
+    [ClientRpc]
+    public void QuickOnTokenHighlightChangedClientRpc(int index, bool isHighlighted, ClientRpcParams clientRpcParams = default)
+    {
+        GameBoard.OpGameBoardInstance.OnOpTokenHoveredChange(index, isHighlighted);
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    public void QuickOnTokenDiscardedServerRpc(int index, ServerRpcParams serverRpcParams = default)
+    {
+        ulong otherClientID = server.OtherPlayer(serverRpcParams.Receive.SenderClientId);
+        QuickOnTokenDiscardedClientRpc(index, NetworkUtility.MakeClientRpcParams(otherClientID));
+    }
+
+    [ClientRpc]
+    public void QuickOnTokenDiscardedClientRpc(int index, ClientRpcParams clientRpcParams = default)
+    {
+        GameBoard.OpGameBoardInstance.OnOpTokenDiscarded(index);
+    }
+
     private void Awake()
     {
         Assert.IsNull(Instance);

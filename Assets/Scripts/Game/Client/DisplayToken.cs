@@ -4,9 +4,15 @@ using UnityEngine;
 
 public partial class DisplayToken : MonoBehaviour, IInteractable
 {
-    public Action<DisplayToken, bool> OnHoveredChanged { get; set; }
+    public Action<DisplayToken, bool> OnHoveredChange { get; set; }
     public Action<DisplayToken> OnInteract { get; set; }
     public TokenInstance TokenInstance { get; private set; }
+
+    public bool IsHighlighted
+    {
+        get => outline.enabled;
+        set => outline.enabled = value;
+    }
 
     public void Initialize(TokenInstance tokenInstance)
     {
@@ -22,11 +28,6 @@ public partial class DisplayToken : MonoBehaviour, IInteractable
     public void Destroy()
     {
         Destroy(gameObject);
-    }
-
-    public void SetHighlighted(bool isHighlighted)
-    {
-        outline.enabled = isHighlighted;
     }
 
     [Header("References")]
@@ -47,7 +48,7 @@ public partial class DisplayToken : MonoBehaviour, IInteractable
         if (isHovered != this.isHovered)
         {
             this.isHovered = isHovered;
-            OnHoveredChanged?.Invoke(this, isHovered);
+            OnHoveredChange?.Invoke(this, isHovered);
         }
     }
 

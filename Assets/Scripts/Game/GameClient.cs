@@ -22,6 +22,7 @@ public class GameClient : MonoBehaviour
     public bool IsPlayer1 { get; private set; }
     public bool IsFirstTurn { get; private set; }
     public GameObject OpPlayerObject { get; set; }
+    public Dictionary<GamePhase, ClientPhaseState> PhaseStates { get; private set; }
 
     public void Init()
     {
@@ -40,7 +41,7 @@ public class GameClient : MonoBehaviour
 
         // Transition into SETUP phase
         Assert.AreEqual(GamePhase.CONNECTING, currentGamePhase);
-        ((SetupPhaseState)phaseStates[GamePhase.SETUP]).SetData(data);
+        ((SetupPhaseState)PhaseStates[GamePhase.SETUP]).SetData(data);
         TransitionToPhase(GamePhase.SETUP);
     }
 
@@ -52,14 +53,13 @@ public class GameClient : MonoBehaviour
     public void TransitionToPhase(GamePhase gamePhase)
     {
         currentGamePhaseState?.Exit(gamePhase);
-        currentGamePhaseState = phaseStates[gamePhase];
+        currentGamePhaseState = PhaseStates[gamePhase];
         currentGamePhaseState?.Enter(this.currentGamePhase);
         this.currentGamePhase = gamePhase;
     }
 
     private GamePhase? currentGamePhase;
     private ClientPhaseState currentGamePhaseState;
-    private Dictionary<GamePhase, ClientPhaseState> phaseStates;
 
     private void Awake()
     {
@@ -81,7 +81,7 @@ public class GameClient : MonoBehaviour
     {
         IsConnected = true;
 
-        phaseStates = new Dictionary<GamePhase, ClientPhaseState>
+        PhaseStates = new Dictionary<GamePhase, ClientPhaseState>
         {
             { GamePhase.CONNECTING, new ConnectingPhaseState(this) },
             { GamePhase.SETUP, new SetupPhaseState(this) }
@@ -258,7 +258,7 @@ public class SetupPhaseState : ClientPhaseState
         {
             int x = i % boardTokenGridWidth;
             int y = i / boardTokenGridWidth;
-            int delay = (int)(60 * (boardTokenGridWidth - x) + Mathf.Abs(1.5f - y) * i);
+            int delay = 60 * (int)((boardTokenGridWidth - x) + Mathf.Abs(1.5f - y));
             DisplayToken token = displayTokens[i];
             tokenAnimations.Add(AnimationUtility.DelayTask(ctoken, delay,
                 () => AnimationUtility.AnimatePosToPosWithLift(ctoken, token.transform, token.transform.position, gameClient.bagObject.transform.position, 6.0f, 0.7f, 0.0f, 0.8f)

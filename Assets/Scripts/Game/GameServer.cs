@@ -7,6 +7,9 @@ public class GameServer : MonoBehaviour
 {
     public static GameServer Instance;
 
+    public ulong Player1ClientID { get; private set; }
+    public ulong Player2ClientID { get; private set; }
+
     public void Init()
     {
         NetworkManager.Singleton.OnServerStarted += () => { OnNetworkStart(); };
@@ -25,8 +28,8 @@ public class GameServer : MonoBehaviour
         Debug.Log("Client connected: " + clientID);
         Assert.AreEqual(GamePhase.CONNECTING, gamePhase);
 
-        if (playersConnected == 0) player1ClientID = clientID;
-        else if (playersConnected == 1) player2ClientID = clientID;
+        if (playersConnected == 0) Player1ClientID = clientID;
+        else if (playersConnected == 1) Player2ClientID = clientID;
 
         playersConnected++;
 
@@ -39,14 +42,14 @@ public class GameServer : MonoBehaviour
     public void OnGameClientDisconnect(ulong clientID)
     {
         // Rotate player IDs if necessary
-        if (player1ClientID == clientID)
+        if (Player1ClientID == clientID)
         {
-            player1ClientID = player2ClientID;
-            player2ClientID = 0;
+            Player1ClientID = Player2ClientID;
+            Player2ClientID = 0;
         }
-        else if (player2ClientID == clientID)
+        else if (Player2ClientID == clientID)
         {
-            player2ClientID = 0;
+            Player2ClientID = 0;
         }
 
         playersConnected--;
@@ -62,7 +65,7 @@ public class GameServer : MonoBehaviour
         // Initialize game state
         currentRound = 1;
         ulong firstTurnPlayer = (ulong)Random.Range(0, 2);
-        firstTurnClientID = firstTurnPlayer == 0 ? player1ClientID : player2ClientID;
+        firstTurnClientID = firstTurnPlayer == 0 ? Player1ClientID : Player2ClientID;
         currentGameTokenInstances = TokenManager.Instance.GetTokenSelection(24);
         TokenInstance[] initialGameTokenInstances = currentGameTokenInstances.ToArray();
 
@@ -80,8 +83,8 @@ public class GameServer : MonoBehaviour
         // Send setup game state to clients
         ClientSetupPhaseData clientData = new ClientSetupPhaseData();
         clientData.firstTurnClientID = firstTurnClientID;
-        clientData.player1ClientID = player1ClientID;
-        clientData.player2ClientID = player2ClientID;
+        clientData.player1ClientID = Player1ClientID;
+        clientData.player2ClientID = Player2ClientID;
         clientData.initialGameTokenInstances = initialGameTokenInstances;
         clientData.player1DraftTokenInstances = player1DraftTokenIDs.ToArray();
         clientData.player2DraftTokenInstances = player2DraftTokenIDs.ToArray();
@@ -94,11 +97,16 @@ public class GameServer : MonoBehaviour
         GameCommunication.Instance.GameResetClientRpc();
     }
 
+    public ulong OtherPlayer(ulong clientID)
+    {
+        if (clientID == Player1ClientID) return Player2ClientID;
+        if (clientID == Player2ClientID) return Player1ClientID;
+        return 0;
+    }
+
     private GamePhase gamePhase;
     private int playersConnected = 0;
     private ulong firstTurnClientID;
-    private ulong player1ClientID;
-    private ulong player2ClientID;
     private List<TokenInstance> currentGameTokenInstances;
     private int currentRound;
 
