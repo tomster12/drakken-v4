@@ -81,6 +81,18 @@ public class GameBoard : MonoBehaviour
         }
     }
 
+    public async Task RollDice(DiceData[] dices)
+    {
+        int total = 0;
+        foreach (DiceData dice in dices)
+        {
+            total += dice.Value;
+        }
+        totalText.text = total.ToString();
+
+        await diceRoller.RollDice(dices);
+    }
+
     public void SetTokenMode(TokenInteractMode tokenInteractMode)
     {
         Assert.IsTrue(isLocalBoard);
@@ -134,6 +146,8 @@ public class GameBoard : MonoBehaviour
     [SerializeField] private Transform tokenSpacingTfm;
     [SerializeField] private Transform turnTokenTfm;
     [SerializeField] private GameObject bagObject;
+    [SerializeField] private DiceRoller diceRoller;
+    [SerializeField] private TMPro.TextMeshProUGUI totalText;
 
     private GameClient gameClient;
     private bool isLocalBoard;

@@ -8,8 +8,13 @@ public class GameManager : MonoBehaviour
     [SerializeField] private GameClient client;
     [SerializeField] private GameServer server;
 
+    [Header("Config")]
+    [SerializeField] private bool toSkip = false;
+
     private void Start()
     {
+        if (toSkip) return;
+
         // If you detect batch mode then you are in a headless environment therefore server
         if (Application.isBatchMode)
         {
@@ -34,12 +39,14 @@ public class GameManager : MonoBehaviour
     private void StartClient()
     {
         Destroy(server.gameObject);
+        client.gameObject.SetActive(true);
         client.Init();
     }
 
     private void StartServer()
     {
         Destroy(client.gameObject);
+        server.gameObject.SetActive(true);
         server.Init();
     }
 }

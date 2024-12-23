@@ -21,6 +21,10 @@ public partial class GameServer : MonoBehaviour
     [Header("References")]
     [SerializeField] public UnityTransport transport;
 
+    [Header("Config")]
+    [SerializeField] public string clientAddress = "0.0.0.0";
+    [SerializeField] public ushort clientPort = 7777;
+
     public int PlayersConnected { get; set; }
     public ulong Player1ClientID { get; private set; }
     public ulong Player2ClientID { get; private set; }
@@ -57,8 +61,8 @@ public partial class GameServer : MonoBehaviour
         TransitionToPhase(GamePhase.CONNECTING);
 
         // Setup networking and start server
-        transport.ConnectionData.Address = "127.0.0.1";
-        transport.ConnectionData.Port = 25565;
+        transport.ConnectionData.Address = clientAddress;
+        transport.ConnectionData.Port = clientPort;
         NetworkManager.Singleton.StartServer();
     }
 

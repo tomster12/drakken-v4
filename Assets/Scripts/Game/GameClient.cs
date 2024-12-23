@@ -28,6 +28,10 @@ public partial class GameClient : MonoBehaviour
     [SerializeField] public GameBoard myBoard;
     [SerializeField] public GameBoard opBoard;
 
+    [Header("Config")]
+    [SerializeField] public string serverAddress = "0.0.0.0";
+    [SerializeField] public ushort serverPort = 7777;
+
     public ulong MyClientID { get; private set; }
     public ulong OpClientID { get; private set; }
     public bool IsPlayer1 { get; private set; }
@@ -73,9 +77,8 @@ public partial class GameClient : MonoBehaviour
         };
 
         // Setup networking and try connect to server
-        //transport.ConnectionData.Address = "94.173.233.21";
-        transport.ConnectionData.Address = "127.0.0.1";
-        transport.ConnectionData.Port = 25565;
+        transport.ConnectionData.Address = serverAddress;
+        transport.ConnectionData.Port = serverPort;
         NetworkManager.Singleton.StartClient();
     }
 
@@ -128,6 +131,7 @@ public partial class GameClient : MonoBehaviour
     {
         Assert.AreEqual(GamePhase.SETUP, currentPhase);
 
+        ((ClientState.Play)states[GamePhase.PLAY]).SetStartData(data);
         TransitionToPhase(GamePhase.PLAY);
     }
 
@@ -334,19 +338,22 @@ namespace ClientState
     {
         public Play(GameClient gameClient) : base(gameClient) { }
 
-        public override void Enter(GamePhase? previousPhase)
+        public override async void Enter(GamePhase? previousPhase)
         {
-            Debug.Log("Entering play mode");
-            Debug.Log("Player 1 dice:");
-            foreach (DiceData dice in startData.Player1Dice)
+            foreach (var dice in startData.Player1Dice)
             {
-                Debug.Log(dice.FaceValue);
+                Debug.Log(dice.Value);
             }
-            Debug.Log("Player 2 dice:");
-            foreach (DiceData dice in startData.Player2Dice)
+
+            foreach (var dice in startData.Player2Dice)
             {
-                Debug.Log(dice.FaceValue);
+                Debug.Log(dice.Value);
             }
+
+            await Task.WhenAll(
+                gameClient.myBoard.RollDice(gameClient.IsPlayer1 ? startData.Player1Dice : startData.Player2Dice),
+                gameClient.opBoard.RollDice(gameClient.IsPlayer1 ? startData.Player2Dice : startData.Player1Dice)
+            );
         }
 
         public override void Exit(GamePhase? nextPhase)
