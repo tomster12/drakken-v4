@@ -4,20 +4,20 @@ using Unity.Netcode;
 [Serializable]
 public class SetupPhaseStartData : INetworkSerializable
 {
-    public ulong firstTurnClientID;
-    public ulong player1ClientID;
-    public ulong player2ClientID;
-    public TokenInstance[] initialGameTokenInstances;
-    public TokenInstance[] player1DraftTokenInstances;
-    public TokenInstance[] player2DraftTokenInstances;
+    public ulong FirstTurnClientID;
+    public ulong Player1ClientID;
+    public ulong Player2ClientID;
+    public TokenInstance[] AllTokens;
+    public TokenInstance[] Player1BoardTokens;
+    public TokenInstance[] Player2BoardTokens;
 
     public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
     {
-        serializer.SerializeValue(ref firstTurnClientID);
-        serializer.SerializeValue(ref player1ClientID);
-        serializer.SerializeValue(ref player2ClientID);
-        NetworkUtility.SerializeTokenInstanceArray(ref initialGameTokenInstances, serializer);
-        NetworkUtility.SerializeTokenInstanceArray(ref player1DraftTokenInstances, serializer);
-        NetworkUtility.SerializeTokenInstanceArray(ref player2DraftTokenInstances, serializer);
+        serializer.SerializeValue(ref FirstTurnClientID);
+        serializer.SerializeValue(ref Player1ClientID);
+        serializer.SerializeValue(ref Player2ClientID);
+        NetworkUtility.SerializeArray(ref AllTokens, serializer);
+        NetworkUtility.SerializeArray(ref Player1BoardTokens, serializer);
+        NetworkUtility.SerializeArray(ref Player2BoardTokens, serializer);
     }
 }

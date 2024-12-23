@@ -33,6 +33,7 @@ public partial class GameClient : MonoBehaviour
     public bool IsPlayer1 { get; private set; }
     public bool IsFirstTurn { get; private set; }
     public GameObject OpPlayerObject { get; set; }
+    public TurnToken TurnToken { get; set; }
 
     public void Init()
     {
@@ -52,7 +53,8 @@ public partial class GameClient : MonoBehaviour
         states = new Dictionary<GamePhase, ClientState.Base>
         {
             { GamePhase.CONNECTING, new ClientState.Connecting(this) },
-            { GamePhase.SETUP, new ClientState.Setup(this) }
+            { GamePhase.SETUP, new ClientState.Setup(this) },
+            { GamePhase.PLAY, new ClientState.Play(this) }
         };
 
         // Start in connecting phase
@@ -71,7 +73,8 @@ public partial class GameClient : MonoBehaviour
         };
 
         // Setup networking and try connect to server
-        transport.ConnectionData.Address = "94.173.233.21";
+        //transport.ConnectionData.Address = "94.173.233.21";
+        transport.ConnectionData.Address = "127.0.0.1";
         transport.ConnectionData.Port = 25565;
         NetworkManager.Singleton.StartClient();
     }
@@ -113,9 +116,9 @@ public partial class GameClient : MonoBehaviour
         Assert.AreEqual(GamePhase.CONNECTING, currentPhase);
 
         MyClientID = NetworkManager.Singleton.LocalClientId;
-        IsPlayer1 = MyClientID == startData.player1ClientID;
-        OpClientID = IsPlayer1 ? startData.player2ClientID : startData.player1ClientID;
-        IsFirstTurn = MyClientID == startData.firstTurnClientID;
+        IsPlayer1 = MyClientID == startData.Player1ClientID;
+        OpClientID = IsPlayer1 ? startData.Player2ClientID : startData.Player1ClientID;
+        IsFirstTurn = MyClientID == startData.FirstTurnClientID;
 
         ((ClientState.Setup)states[GamePhase.SETUP]).SetStartData(startData);
         TransitionToPhase(GamePhase.SETUP);
@@ -181,32 +184,37 @@ namespace ClientState
 
         public override void Exit(GamePhase? nextPhase)
         {
+            Assert.IsTrue(nextPhase == GamePhase.CONNECTING || nextPhase == GamePhase.PLAY);
+
             // Cancel the main logic
             mainLogicCTS?.Cancel();
             mainLogicCTS?.Dispose();
             mainLogicCTS = null;
 
-            // Destroy all game objects
-            GameObject.Destroy(gameClient.OpPlayerObject);
-            gameClient.OpPlayerObject = null;
-
-            if (turnToken != null)
+            // If cleaning up to CONNECTING then destroy object
+            if (nextPhase == GamePhase.CONNECTING)
             {
-                GameObject.Destroy(turnToken.gameObject);
-                turnToken = null;
-            }
+                GameObject.Destroy(gameClient.OpPlayerObject);
+                gameClient.OpPlayerObject = null;
 
-            if (displayTokens != null)
-            {
-                for (int i = 0; i < displayTokens.Count; i++)
+                if (gameClient.TurnToken != null)
                 {
-                    displayTokens[i].Destroy();
+                    GameObject.Destroy(gameClient.TurnToken.gameObject);
+                    gameClient.TurnToken = null;
                 }
-                displayTokens = null;
-            }
 
-            gameClient.myBoard.ResetBoard();
-            gameClient.opBoard.ResetBoard();
+                if (displayTokens != null)
+                {
+                    for (int i = 0; i < displayTokens.Count; i++)
+                    {
+                        displayTokens[i].Destroy();
+                    }
+                    displayTokens = null;
+                }
+
+                gameClient.myBoard.ResetBoard();
+                gameClient.opBoard.ResetBoard();
+            }
 
             startData = null;
         }
@@ -217,7 +225,6 @@ namespace ClientState
         }
 
         private SetupPhaseStartData startData;
-        private TurnToken turnToken;
         private List<DisplayToken> displayTokens;
         private CancellationTokenSource mainLogicCTS;
 
@@ -234,14 +241,14 @@ namespace ClientState
             // Spawn in turn token, flip to show first player, go to position
             Vector3 startPos = new(0.0f, 0.15f, 0.0f);
             GameObject turnTokenObject = GameObject.Instantiate(gameClient.TurnTokenPrefab, startPos, Quaternion.identity);
-            turnToken = turnTokenObject.GetComponent<TurnToken>();
+            gameClient.TurnToken = turnTokenObject.GetComponent<TurnToken>();
             GameBoard turnTokenBoard = gameClient.IsFirstTurn ? gameClient.myBoard : gameClient.opBoard;
 
             ParticleManager.Instance.SpawnPoof(startPos);
             await Task.Delay(850, ctoken);
-            await turnToken.DoFlipAnimation(ctoken, gameClient.IsFirstTurn, 1.0f, 4.0f, 2);
+            await gameClient.TurnToken.DoFlipAnimation(ctoken, gameClient.IsFirstTurn, 1.0f, 4.0f, 2);
             await Task.Delay(300, ctoken);
-            await turnToken.DoChangeAndPlaceAnimation(ctoken, 2.0f, turnTokenBoard);
+            await gameClient.TurnToken.DoChangeAndPlaceAnimation(ctoken, 2.0f, turnTokenBoard);
 
             // Display initial game tokens and animate them onto the table
             displayTokens = new List<DisplayToken>();
@@ -252,12 +259,12 @@ namespace ClientState
             float boardOffsetY = boardTokenSpacing * (boardTokenGridHeight - 1) / 2;
 
             List<Task> tokenAnimations = new List<Task>();
-            for (int i = 0; i < startData.initialGameTokenInstances.Length; i++)
+            for (int i = 0; i < startData.AllTokens.Length; i++)
             {
                 int x = i % boardTokenGridWidth;
                 int y = i / boardTokenGridWidth;
                 Vector3 targetPos = new Vector3(x * boardTokenSpacing + boardOffsetX, 0.15f, -y * boardTokenSpacing + boardOffsetY);
-                DisplayToken displayToken = TokenManager.Instance.CreateDisplayToken(startData.initialGameTokenInstances[i], gameClient.bagObject.transform.position);
+                DisplayToken displayToken = TokenManager.Instance.CreateDisplayToken(startData.AllTokens[i], gameClient.bagObject.transform.position);
                 displayTokens.Add(displayToken);
 
                 tokenAnimations.Add(AnimationUtility.DelayTask(ctoken, 60 * i,
@@ -292,8 +299,8 @@ namespace ClientState
 
             // Make player draw the 6 tokens
             await Task.WhenAll(
-                gameClient.myBoard.DrawTokens(ctoken, gameClient.IsPlayer1 ? startData.player1DraftTokenInstances : startData.player2DraftTokenInstances),
-                gameClient.opBoard.DrawTokens(ctoken, gameClient.IsPlayer1 ? startData.player2DraftTokenInstances : startData.player1DraftTokenInstances)
+                gameClient.myBoard.DrawTokens(ctoken, gameClient.IsPlayer1 ? startData.Player1BoardTokens : startData.Player2BoardTokens),
+                gameClient.opBoard.DrawTokens(ctoken, gameClient.IsPlayer1 ? startData.Player2BoardTokens : startData.Player1BoardTokens)
             );
 
             // Listen and wait until discarded down to 4
@@ -317,9 +324,40 @@ namespace ClientState
             // Send the discarded tokens to the server to finish up the setup phase
             SetupPhaseEndData endData = new()
             {
-                discardedTokenInstances = discardedTokens.ToArray()
+                DiscardedTokens = discardedTokens.ToArray()
             };
             GameCommunication.Instance.EndSetupPhaseServerRpc(endData);
         }
+    }
+
+    internal class Play : Base
+    {
+        public Play(GameClient gameClient) : base(gameClient) { }
+
+        public override void Enter(GamePhase? previousPhase)
+        {
+            Debug.Log("Entering play mode");
+            Debug.Log("Player 1 dice:");
+            foreach (DiceData dice in startData.Player1Dice)
+            {
+                Debug.Log(dice.FaceValue);
+            }
+            Debug.Log("Player 2 dice:");
+            foreach (DiceData dice in startData.Player2Dice)
+            {
+                Debug.Log(dice.FaceValue);
+            }
+        }
+
+        public override void Exit(GamePhase? nextPhase)
+        {
+        }
+
+        public void SetStartData(PlayPhaseStartData startData)
+        {
+            this.startData = startData;
+        }
+
+        private PlayPhaseStartData startData;
     }
 }

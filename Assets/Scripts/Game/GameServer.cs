@@ -24,8 +24,12 @@ public partial class GameServer : MonoBehaviour
     public int PlayersConnected { get; set; }
     public ulong Player1ClientID { get; private set; }
     public ulong Player2ClientID { get; private set; }
-    public ulong FirstTurnClientID { get; set; }
-    public List<TokenInstance> CurrentGameTokenInstances { get; set; }
+    public ulong CurrentTurnClientID { get; set; }
+    public List<TokenInstance> CurrentBagTokens { get; set; }
+    public List<TokenInstance> Player1BoardTokens { get; set; }
+    public List<TokenInstance> Player2BoardTokens { get; set; }
+    public List<DiceData> Player1Dice { get; set; }
+    public List<DiceData> Player2Dice { get; set; }
 
     public void Init()
     {
@@ -36,8 +40,8 @@ public partial class GameServer : MonoBehaviour
         PlayersConnected = 0;
         Player1ClientID = 0;
         Player2ClientID = 0;
-        FirstTurnClientID = 0;
-        CurrentGameTokenInstances = null;
+        CurrentTurnClientID = 0;
+        CurrentBagTokens = null;
         currentPhase = null;
         currentState = null;
 
@@ -45,7 +49,8 @@ public partial class GameServer : MonoBehaviour
         states = new Dictionary<GamePhase, ServerState.Base>
         {
             { GamePhase.CONNECTING, new ServerState.Connecting(this) },
-            { GamePhase.SETUP, new ServerState.Setup(this) }
+            { GamePhase.SETUP, new ServerState.Setup(this) },
+            { GamePhase.PLAY, new ServerState.Play(this) }
         };
 
         // Start in connecting phase
@@ -173,43 +178,84 @@ namespace ServerState
 
         public override void Enter(GamePhase? previousPhase)
         {
-            // Initialize game state
+            finishedPlayerCount = 0;
+
+            // Select first player
             ulong firstTurnPlayer = (ulong)Random.Range(0, 2);
-            gameServer.FirstTurnClientID = firstTurnPlayer == 0 ? gameServer.Player1ClientID : gameServer.Player2ClientID;
-            gameServer.CurrentGameTokenInstances = TokenManager.Instance.GetTokenSelection(24);
+            gameServer.CurrentTurnClientID = firstTurnPlayer == 0 ? gameServer.Player1ClientID : gameServer.Player2ClientID;
 
-            // Cache initial tokens in the game to send to client
-            TokenInstance[] initialGameTokenInstances = gameServer.CurrentGameTokenInstances.ToArray();
+            // Draw the bag tokens (and cache for later)
+            gameServer.CurrentBagTokens = TokenManager.Instance.GetTokenSelection(24);
+            TokenInstance[] allTokens = gameServer.CurrentBagTokens.ToArray();
 
-            // Take from top of available tokens for each players draft
-            List<TokenInstance> player1DraftTokenIDs = new List<TokenInstance>();
-            List<TokenInstance> player2DraftTokenIDs = new List<TokenInstance>();
+            // Take from top of bag tokens for each players draft
+            gameServer.Player1BoardTokens = new List<TokenInstance>();
+            gameServer.Player2BoardTokens = new List<TokenInstance>();
             for (int i = 0; i < 6; i++)
             {
-                player1DraftTokenIDs.Add(gameServer.CurrentGameTokenInstances[0]);
-                gameServer.CurrentGameTokenInstances.RemoveAt(0);
-                player2DraftTokenIDs.Add(gameServer.CurrentGameTokenInstances[0]);
-                gameServer.CurrentGameTokenInstances.RemoveAt(0);
+                gameServer.Player1BoardTokens.Add(gameServer.CurrentBagTokens[0]);
+                gameServer.CurrentBagTokens.RemoveAt(0);
+                gameServer.Player2BoardTokens.Add(gameServer.CurrentBagTokens[0]);
+                gameServer.CurrentBagTokens.RemoveAt(0);
             }
 
             // Send setup game state to clients
             SetupPhaseStartData clientData = new SetupPhaseStartData();
-            clientData.firstTurnClientID = gameServer.FirstTurnClientID;
-            clientData.player1ClientID = gameServer.Player1ClientID;
-            clientData.player2ClientID = gameServer.Player2ClientID;
-            clientData.initialGameTokenInstances = initialGameTokenInstances;
-            clientData.player1DraftTokenInstances = player1DraftTokenIDs.ToArray();
-            clientData.player2DraftTokenInstances = player2DraftTokenIDs.ToArray();
+            clientData.FirstTurnClientID = gameServer.CurrentTurnClientID;
+            clientData.Player1ClientID = gameServer.Player1ClientID;
+            clientData.Player2ClientID = gameServer.Player2ClientID;
+            clientData.AllTokens = allTokens;
+            clientData.Player1BoardTokens = gameServer.Player1BoardTokens.ToArray();
+            clientData.Player2BoardTokens = gameServer.Player2BoardTokens.ToArray();
             GameCommunication.Instance.StartSetupPhaseClientRpc(clientData);
         }
 
         public void OnClientEndSetupPhase(ulong clientID, SetupPhaseEndData data)
         {
-            Debug.Log("Client setup phase end: " + clientID);
-            foreach (TokenInstance token in data.discardedTokenInstances)
+            // Update players board tokens
+            foreach (TokenInstance token in data.DiscardedTokens)
             {
-                Debug.Log("Discarded token: " + token.tokenID);
+                if (clientID == gameServer.Player1ClientID) gameServer.Player1BoardTokens.Remove(token);
+                else gameServer.Player2BoardTokens.Remove(token);
             }
+
+            // Update current state
+            finishedPlayerCount++;
+            if (finishedPlayerCount == 2)
+            {
+                gameServer.TransitionToPhase(GamePhase.PLAY);
+            }
+        }
+
+        private int finishedPlayerCount = 0;
+    }
+
+    internal class Play : Base
+    {
+        public Play(GameServer gameServer) : base(gameServer) { }
+
+        public override void Enter(GamePhase? previousPhase)
+        {
+            // Roll dice for each player
+            gameServer.Player1Dice = new List<DiceData>();
+            gameServer.Player2Dice = new List<DiceData>();
+
+            for (int i = 0; i < 5; i++)
+            {
+                DiceData dice1 = new();
+                dice1.Roll();
+                gameServer.Player1Dice.Add(dice1);
+
+                DiceData dice2 = new();
+                dice2.Roll();
+                gameServer.Player2Dice.Add(dice2);
+            }
+
+            // Send starting data to client
+            PlayPhaseStartData data = new PlayPhaseStartData();
+            data.Player1Dice = gameServer.Player1Dice.ToArray();
+            data.Player2Dice = gameServer.Player2Dice.ToArray();
+            GameCommunication.Instance.StartPlayPhaseClientRpc(data);
         }
     }
 }

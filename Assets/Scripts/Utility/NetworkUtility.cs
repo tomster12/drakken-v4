@@ -18,7 +18,7 @@ public static class NetworkUtility
         };
     }
 
-    public static void SerializeTokenInstanceArray<T>(ref TokenInstance[] array, BufferSerializer<T> serializer) where T : IReaderWriter
+    public static void SerializeArray<T, D>(ref D[] array, BufferSerializer<T> serializer) where T : IReaderWriter where D : INetworkSerializable, new()
     {
         if (serializer.IsWriter)
         {
@@ -34,7 +34,7 @@ public static class NetworkUtility
         {
             FastBufferReader fastBufferReader = serializer.GetFastBufferReader();
             fastBufferReader.ReadValueSafe(out int length);
-            array = new TokenInstance[length];
+            array = new D[length];
             for (int i = 0; i < length; i++)
             {
                 fastBufferReader.ReadValueSafe(out array[i]);
